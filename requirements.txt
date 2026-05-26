@@ -1,0 +1,7 @@
+streamlit
+google-generativeai
+streamlit-option-menu
+Pillow
+PyPDF2
+speechrecognition
+pyaudio
