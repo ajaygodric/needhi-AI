@@ -168,7 +168,6 @@ st.markdown("""
 
     #MainMenu, footer { visibility: hidden; }
     [data-testid="stToolbar"] { display: none; }
-    [data-testid="stSidebarCollapsedControl"] { display: none; }
 
     /* Sidebar */
     [data-testid="stSidebar"] {
