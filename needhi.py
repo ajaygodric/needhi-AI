@@ -744,7 +744,7 @@ if menu == "Home":
                     </div>
                     <div class="chat-avatar chat-avatar-user">👤</div>
                 </div>''', unsafe_allow_html=True)
-                # AI bubble (summary only — first 300 chars with ellipsis)
+                # AI bubble — preview + expander for full response
                 preview = ai_text[:300] + "..." if len(ai_text) > 300 else ai_text
                 st.markdown(f'''
                 <div class="chat-row-ai">
@@ -754,6 +754,9 @@ if menu == "Home":
                         <div class="chat-bubble-ai">{preview}</div>
                     </div>
                 </div>''', unsafe_allow_html=True)
+                if len(ai_text) > 300:
+                    with st.expander("📌 View full response"):
+                        st.markdown(ai_text)
             st.markdown('</div>', unsafe_allow_html=True)
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
             if st.button("🗑️ Clear Chat", key="clear_chat"):
