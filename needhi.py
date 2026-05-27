@@ -873,6 +873,19 @@ if menu == "Home":
                 if len(ai_text) > 300:
                     with st.expander("📌 View full response"):
                         st.markdown(ai_text)
+                        dl_col, share_col = st.columns(2)
+                        with dl_col:
+                            st.download_button(
+                                "⬇️ Download",
+                                ai_text,
+                                file_name=f"Needhi_Response_{i+1}.txt",
+                                use_container_width=True,
+                                key=f"dl_{i}"
+                            )
+                        with share_col:
+                            share_text = f"Q: {user_text}\n\nNeedhi AI Answer:\n{ai_text}\n\n— Needhi AI (needhi-ai-xkd5twtphbfv9hdz35qe7d.streamlit.app)"
+                            wa_url = f"https://wa.me/?text={share_text[:500].replace(' ', '%20').replace('\n', '%0A')}"
+                            st.markdown(f'<a href="{wa_url}" target="_blank"><button style="width:100%;background:rgba(37,211,102,0.15);border:1.5px solid #25d366;color:#25d366;border-radius:10px;padding:10px;font-size:0.85rem;font-weight:600;cursor:pointer;">📤 Share on WhatsApp</button></a>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
             if st.button("🗑️ Clear Chat", key="clear_chat"):
