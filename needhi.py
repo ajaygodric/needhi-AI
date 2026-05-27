@@ -516,7 +516,7 @@ st.markdown("""
     }
 
     /* Suggested question chips */
-    .chip-row { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 4px 0; }
+    .chip-row { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px 0; }
     .chip {
         background: rgba(201,168,76,0.08);
         border: 1px solid rgba(201,168,76,0.25);
@@ -525,6 +525,27 @@ st.markdown("""
         font-size: 0.78rem;
         color: #c9a84c;
         white-space: nowrap;
+    }
+    /* Hide chip buttons default styling */
+    div[data-testid="stHorizontalBlock"] .stButton > button {
+        background: rgba(201,168,76,0.08) !important;
+        border: 1px solid rgba(201,168,76,0.3) !important;
+        border-radius: 20px !important;
+        color: #c9a84c !important;
+        font-size: 0.78rem !important;
+        padding: 5px 14px !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.3px !important;
+        text-transform: none !important;
+        min-height: 0 !important;
+        height: auto !important;
+        transition: all 0.2s !important;
+    }
+    div[data-testid="stHorizontalBlock"] .stButton > button:hover {
+        background: rgba(201,168,76,0.2) !important;
+        border-color: #c9a84c !important;
+        transform: none !important;
+        box-shadow: none !important;
     }
 
     /* Related questions */
@@ -771,15 +792,6 @@ if menu == "Home":
 
     # ── TAB 1: ASK (with chat history) ──────────────────────────────────────
     with tab_ask:
-        # --- Suggested Questions ---
-        suggestions = ["What is Section 498A?", "How to file an FIR?", "Tenant rights in India", "Cyber fraud complaint", "Bail process in India", "Consumer complaint"] if language == "English" else ["பிரிவு 498A என்ன?", "FIR எப்படி போடுவது?", "வாடகைதாரர் உரிமைகள்", "சைபர் மோசடி புகார்", "பிணை எப்படி பெறுவது?"]
-        chip_cols = st.columns(len(suggestions))
-        for i, s in enumerate(suggestions):
-            with chip_cols[i]:
-                if st.button(s, key=f"chip_{i}", use_container_width=True):
-                    st.session_state.chip_query = s
-                    st.rerun()
-
         # Render existing chat history
         if st.session_state.chat_history:
             st.markdown('<div class="chat-container">', unsafe_allow_html=True)
@@ -818,6 +830,16 @@ if menu == "Home":
                 st.rerun()
 
         st.markdown('<div class="search-box">', unsafe_allow_html=True)
+
+        # --- Suggested Question Chips inside search box ---
+        suggestions = ["What is Section 498A?", "How to file an FIR?", "Tenant rights in India", "Cyber fraud complaint", "Bail process in India", "Consumer complaint"] if language == "English" else ["பிரிவு 498A என்ன?", "FIR எப்படி போடுவது?", "வாடகைதாரர் உரிமைகள்", "சைபர் மோசடி புகார்", "பிணை எப்படி பெறுவது?"]
+        chip_cols = st.columns(len(suggestions))
+        for i, s in enumerate(suggestions):
+            with chip_cols[i]:
+                if st.button(s, key=f"chip_{i}", use_container_width=True):
+                    st.session_state.chip_query = s
+                    st.rerun()
+
         col1, col2 = st.columns([5, 1])
         with col1:
             input_placeholder = "e.g. My landlord is not returning my deposit..." if language == "English" else "e.g. என் நண்பன் என்னை ஏமாற்றினான்..."
