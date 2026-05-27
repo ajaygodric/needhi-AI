@@ -650,14 +650,14 @@ nav_col, lang_col = st.columns([4, 1])
 with nav_col:
     menu = option_menu(
         menu_title=None,
-        options=["Home", "Know Your Rights", "About", "Contact Lawyer"],
-        icons=["house-fill", "journal-text", "info-circle-fill", "telephone-fill"],
+        options=["Home", "Know Your Rights", "FIR Draft", "Legal Templates", "Lawyer Directory", "Case Status", "About", "Contact Lawyer"],
+        icons=["house-fill", "journal-text", "file-earmark-text", "file-earmark-ruled", "person-badge", "search", "info-circle-fill", "telephone-fill"],
         default_index=0,
         orientation="horizontal",
         styles={
             "container": {"padding": "0", "background-color": "#1a1a2e", "border-bottom": "2px solid #c9a84c33"},
             "icon": {"color": "#c9a84c", "font-size": "14px"},
-            "nav-link": {"font-family": "Inter, sans-serif", "color": "#8a9bb0", "font-size": "0.85rem", "font-weight": "500", "padding": "16px 20px", "border-radius": "0", "letter-spacing": "0.5px"},
+            "nav-link": {"font-family": "Inter, sans-serif", "color": "#8a9bb0", "font-size": "0.82rem", "font-weight": "500", "padding": "16px 14px", "border-radius": "0", "letter-spacing": "0.3px"},
             "nav-link-selected": {"background-color": "rgba(201,168,76,0.1)", "color": "#c9a84c", "border-bottom": "3px solid #c9a84c", "font-weight": "600"},
         }
     )
@@ -1179,6 +1179,248 @@ elif menu == "Know Your Rights":
         ]
         for t, d in rights_cyber:
             st.markdown(f'<div class="rights-card"><h4>{t}</h4><p>{d}</p></div>', unsafe_allow_html=True)
+
+# --- FIR DRAFT GENERATOR ---
+elif menu == "FIR Draft":
+    st.markdown('<p class="section-title">📝 FIR Draft Generator</p><p class="section-subtitle">Describe your issue — Needhi AI will generate a ready-to-print FIR draft</p>', unsafe_allow_html=True)
+    fir_issue = st.text_area("Describe what happened", height=150, placeholder="e.g. On 15th May 2025, at around 8pm, my mobile phone was snatched by two unknown persons near XYZ street...")
+    col_state, col_ps = st.columns(2)
+    with col_state:
+        fir_state = st.text_input("Your State", placeholder="e.g. Tamil Nadu")
+    with col_ps:
+        fir_ps = st.text_input("Police Station (optional)", placeholder="e.g. Anna Nagar Police Station")
+    fir_name = st.text_input("Your Name (optional)", placeholder="e.g. Rajesh Kumar")
+    if st.button("⚖️ Generate FIR Draft", key="gen_fir", use_container_width=True):
+        if not fir_issue.strip():
+            st.warning("⚠️ Please describe the incident first.")
+        else:
+            with st.spinner("Generating FIR draft..."):
+                ps_line = f"Police Station: {fir_ps}" if fir_ps else "Police Station: [Name of Police Station]"
+                name_line = fir_name if fir_name else "[Your Full Name]"
+                prompt = f"""You are Needhi AI, an Indian legal assistant. Generate a formal FIR (First Information Report) draft in English based on the following incident. Use proper legal FIR format used in India.
+
+Incident: {fir_issue}
+State: {fir_state or 'India'}
+{ps_line}
+Complainant: {name_line}
+
+Format the FIR with these sections:
+1. TO: The Station House Officer, {ps_line}
+2. Subject line
+3. Complainant details (name, address placeholder)
+4. Date, time and place of incident
+5. Detailed description of the incident
+6. Names/description of accused (if known)
+7. Witnesses (if any)
+8. Relief sought
+9. Declaration
+10. Signature line
+
+Make it formal, legally precise, and ready to submit. Include relevant IPC/BNS sections at the end."""
+                try:
+                    resp, _ = generate_with_fallback(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=2048))
+                    fir_text = resp.text
+                    st.markdown('<div class="result-card">', unsafe_allow_html=True)
+                    st.markdown('<div class="result-header"><span>📝</span> FIR Draft — Ready to Print</div>', unsafe_allow_html=True)
+                    st.markdown(fir_text)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    # PDF download
+                    from fpdf import FPDF
+                    pdf = FPDF()
+                    pdf.add_page()
+                    pdf.set_margins(20, 20, 20)
+                    pdf.set_font("Helvetica", "B", 14)
+                    pdf.cell(0, 10, "FIR DRAFT - NEEDHI AI", ln=True, align="C")
+                    pdf.set_font("Helvetica", "", 10)
+                    clean = fir_text.encode('latin-1', 'replace').decode('latin-1')
+                    import re as _re2
+                    clean = _re2.sub(r'[*#`]', '', clean)
+                    pdf.multi_cell(0, 6, clean)
+                    pdf_bytes = bytes(pdf.output())
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.download_button("⬇️ Download FIR as PDF", data=pdf_bytes, file_name="FIR_Draft_Needhi.pdf", mime="application/pdf", use_container_width=True)
+                    with c2:
+                        wa_msg = f"I generated an FIR draft using Needhi AI!%0AGet free legal help at:%0Ahttps://needhi-ai-xkd5twtphbfv9hdz35qe7d.streamlit.app"
+                        st.markdown(f'<a href="https://wa.me/?text={wa_msg}" target="_blank"><button style="width:100%;background:rgba(37,211,102,0.15);border:1.5px solid #25d366;color:#25d366;border-radius:10px;padding:9px;font-size:0.85rem;font-weight:600;cursor:pointer;">📤 Share on WhatsApp</button></a>', unsafe_allow_html=True)
+                except Exception as e:
+                    st.error(f"❌ Error: {e}")
+
+# --- LEGAL DOCUMENT TEMPLATES ---
+elif menu == "Legal Templates":
+    st.markdown('<p class="section-title">📋 Legal Document Templates</p><p class="section-subtitle">Fill in the details — download a ready-to-use legal document</p>', unsafe_allow_html=True)
+    template_type = st.selectbox("Select Template", ["Rent Agreement", "Legal Notice", "Affidavit", "Bail Application", "Consumer Complaint"])
+    st.markdown("---")
+    fields = {}
+    if template_type == "Rent Agreement":
+        c1, c2 = st.columns(2)
+        with c1:
+            fields["landlord"] = st.text_input("Landlord Name")
+            fields["tenant"] = st.text_input("Tenant Name")
+            fields["address"] = st.text_input("Property Address")
+            fields["rent"] = st.text_input("Monthly Rent (₹)")
+        with c2:
+            fields["deposit"] = st.text_input("Security Deposit (₹)")
+            fields["start"] = st.text_input("Start Date (DD/MM/YYYY)")
+            fields["duration"] = st.text_input("Duration (months)")
+            fields["state"] = st.text_input("State")
+    elif template_type == "Legal Notice":
+        c1, c2 = st.columns(2)
+        with c1:
+            fields["sender"] = st.text_input("Sender Name")
+            fields["sender_addr"] = st.text_input("Sender Address")
+            fields["receiver"] = st.text_input("Receiver Name")
+        with c2:
+            fields["receiver_addr"] = st.text_input("Receiver Address")
+            fields["subject"] = st.text_input("Subject of Notice")
+            fields["days"] = st.text_input("Days to Respond", value="15")
+        fields["details"] = st.text_area("Details of Grievance", height=100)
+    elif template_type == "Affidavit":
+        c1, c2 = st.columns(2)
+        with c1:
+            fields["name"] = st.text_input("Deponent Name")
+            fields["age"] = st.text_input("Age")
+            fields["address"] = st.text_input("Address")
+        with c2:
+            fields["state"] = st.text_input("State")
+            fields["purpose"] = st.text_input("Purpose of Affidavit")
+        fields["content"] = st.text_area("Affidavit Content", height=120)
+    elif template_type == "Bail Application":
+        c1, c2 = st.columns(2)
+        with c1:
+            fields["accused"] = st.text_input("Accused Name")
+            fields["court"] = st.text_input("Court Name")
+            fields["case_no"] = st.text_input("Case/FIR Number")
+        with c2:
+            fields["section"] = st.text_input("Sections Charged Under")
+            fields["ps"] = st.text_input("Police Station")
+            fields["state"] = st.text_input("State")
+        fields["grounds"] = st.text_area("Grounds for Bail", height=100)
+    elif template_type == "Consumer Complaint":
+        c1, c2 = st.columns(2)
+        with c1:
+            fields["complainant"] = st.text_input("Complainant Name")
+            fields["complainant_addr"] = st.text_input("Complainant Address")
+            fields["opposite_party"] = st.text_input("Opposite Party (Company/Person)")
+        with c2:
+            fields["opposite_addr"] = st.text_input("Opposite Party Address")
+            fields["amount"] = st.text_input("Amount Involved (₹)")
+            fields["date"] = st.text_input("Date of Transaction")
+        fields["complaint"] = st.text_area("Details of Complaint", height=100)
+
+    if st.button(f"⚖️ Generate {template_type}", use_container_width=True, key="gen_template"):
+        with st.spinner("Generating document..."):
+            prompt = f"""You are Needhi AI. Generate a formal {template_type} legal document for India using these details: {fields}.
+Make it legally valid, properly formatted with all standard clauses. Use formal legal language."""
+            try:
+                resp, _ = generate_with_fallback(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=2048))
+                doc_text = resp.text
+                st.markdown('<div class="result-card">', unsafe_allow_html=True)
+                st.markdown(f'<div class="result-header"><span>📋</span> {template_type} — Ready to Use</div>', unsafe_allow_html=True)
+                st.markdown(doc_text)
+                st.markdown('</div>', unsafe_allow_html=True)
+                from fpdf import FPDF
+                import re as _re3
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.set_margins(20, 20, 20)
+                pdf.set_font("Helvetica", "B", 14)
+                pdf.cell(0, 10, template_type.upper(), ln=True, align="C")
+                pdf.set_font("Helvetica", "", 10)
+                clean = _re3.sub(r'[*#`]', '', doc_text).encode('latin-1', 'replace').decode('latin-1')
+                pdf.multi_cell(0, 6, clean)
+                pdf_bytes = bytes(pdf.output())
+                st.download_button(f"⬇️ Download {template_type} PDF", data=pdf_bytes, file_name=f"{template_type.replace(' ','_')}_Needhi.pdf", mime="application/pdf", use_container_width=True)
+            except Exception as e:
+                st.error(f"❌ Error: {e}")
+
+# --- LAWYER DIRECTORY ---
+elif menu == "Lawyer Directory":
+    st.markdown('<p class="section-title">👨‍⚖️ Free Legal Aid Centers</p><p class="section-subtitle">State-wise NALSA Legal Aid Centers — 100% Free</p>', unsafe_allow_html=True)
+    nalsa_data = {
+        "Tamil Nadu":    {"authority": "Tamil Nadu State Legal Services Authority", "address": "High Court Buildings, Chennai - 600 104", "phone": "044-25340708", "email": "tnslsa@gmail.com", "helpline": "15100"},
+        "Maharashtra":   {"authority": "Maharashtra State Legal Services Authority", "address": "High Court, Mumbai - 400 032", "phone": "022-22630956", "email": "mslsa@nic.in", "helpline": "15100"},
+        "Delhi":         {"authority": "Delhi State Legal Services Authority", "address": "Patiala House Courts, New Delhi - 110 001", "phone": "011-23384559", "email": "dslsa@nic.in", "helpline": "15100"},
+        "Karnataka":     {"authority": "Karnataka State Legal Services Authority", "address": "High Court of Karnataka, Bengaluru - 560 001", "phone": "080-22868026", "email": "kslsa@nic.in", "helpline": "15100"},
+        "Uttar Pradesh": {"authority": "U.P. State Legal Services Authority", "address": "16/99, Civil Lines, Prayagraj - 211 001", "phone": "0532-2440120", "email": "upslsa@nic.in", "helpline": "15100"},
+        "West Bengal":   {"authority": "West Bengal State Legal Services Authority", "address": "Calcutta High Court, Kolkata - 700 001", "phone": "033-22371946", "email": "wbslsa@nic.in", "helpline": "15100"},
+        "Rajasthan":     {"authority": "Rajasthan State Legal Services Authority", "address": "High Court Premises, Jodhpur - 342 001", "phone": "0291-2434010", "email": "rslsa@nic.in", "helpline": "15100"},
+        "Gujarat":       {"authority": "Gujarat State Legal Services Authority", "address": "High Court of Gujarat, Sola, Ahmedabad - 380 060", "phone": "079-27660007", "email": "gslsa@nic.in", "helpline": "15100"},
+        "Madhya Pradesh":{"authority": "M.P. State Legal Services Authority", "address": "High Court of M.P., Jabalpur - 482 001", "phone": "0761-2628591", "email": "mpslsa@nic.in", "helpline": "15100"},
+        "Kerala":        {"authority": "Kerala State Legal Services Authority", "address": "High Court of Kerala, Ernakulam - 682 031", "phone": "0484-2562266", "email": "kelslsa@nic.in", "helpline": "15100"},
+        "Andhra Pradesh":{"authority": "A.P. State Legal Services Authority", "address": "High Court of A.P., Amaravati - 522 020", "phone": "0863-2346919", "email": "apslsa@nic.in", "helpline": "15100"},
+        "Telangana":     {"authority": "Telangana State Legal Services Authority", "address": "High Court of Telangana, Hyderabad - 500 001", "phone": "040-23450406", "email": "tslsa@nic.in", "helpline": "15100"},
+        "Punjab":        {"authority": "Punjab State Legal Services Authority", "address": "Punjab & Haryana High Court, Chandigarh - 160 001", "phone": "0172-2748513", "email": "pslsa@nic.in", "helpline": "15100"},
+        "Haryana":       {"authority": "Haryana State Legal Services Authority", "address": "Punjab & Haryana High Court, Chandigarh - 160 001", "phone": "0172-2748514", "email": "hslsa@nic.in", "helpline": "15100"},
+        "Bihar":         {"authority": "Bihar State Legal Services Authority", "address": "Patna High Court, Patna - 800 001", "phone": "0612-2219981", "email": "bslsa@nic.in", "helpline": "15100"},
+        "Odisha":        {"authority": "Odisha State Legal Services Authority", "address": "Orissa High Court, Cuttack - 753 002", "phone": "0671-2508567", "email": "oslsa@nic.in", "helpline": "15100"},
+        "Assam":         {"authority": "Assam State Legal Services Authority", "address": "Gauhati High Court, Guwahati - 781 001", "phone": "0361-2601657", "email": "aslsa@nic.in", "helpline": "15100"},
+        "Jharkhand":     {"authority": "Jharkhand State Legal Services Authority", "address": "Jharkhand High Court, Ranchi - 834 002", "phone": "0651-2482682", "email": "jslsa@nic.in", "helpline": "15100"},
+    }
+    selected_state = st.selectbox("Select Your State", sorted(nalsa_data.keys()))
+    info = nalsa_data[selected_state]
+    st.markdown(f"""
+    <div class="result-card">
+        <div class="result-header"><span>🏛️</span> {info['authority']}</div>
+        <p style="color:#8a9bb0;margin:6px 0;">📍 <b style="color:#e8dcc8">{info['address']}</b></p>
+        <p style="color:#8a9bb0;margin:6px 0;">📞 <b style="color:#c9a84c">{info['phone']}</b></p>
+        <p style="color:#8a9bb0;margin:6px 0;">📧 <b style="color:#e8dcc8">{info['email']}</b></p>
+        <p style="color:#8a9bb0;margin:6px 0;">🆘 National Helpline: <b style="color:#e74c3c;font-size:1.1rem">{info['helpline']}</b> (Toll Free)</p>
+        <div style="margin-top:16px;padding:12px;background:rgba(201,168,76,0.08);border-radius:10px;border:1px solid rgba(201,168,76,0.2)">
+            <p style="color:#c9a84c;margin:0;font-size:0.85rem;">✅ Free legal aid is available to: SC/ST, women, children, disabled persons, victims of trafficking, persons with annual income below ₹3 lakh, and anyone in custody.</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown('<p class="section-subtitle" style="margin-top:24px">All State Legal Aid Centers</p>', unsafe_allow_html=True)
+    cols = st.columns(3)
+    for idx, (state, info) in enumerate(sorted(nalsa_data.items())):
+        with cols[idx % 3]:
+            st.markdown(f"""
+            <div class="rights-card" style="padding:16px 20px;margin-bottom:12px">
+                <h4 style="font-size:0.95rem;margin-bottom:6px">{state}</h4>
+                <p style="font-size:0.8rem;margin:2px 0">📞 {info['phone']}</p>
+                <p style="font-size:0.8rem;margin:2px 0">📧 {info['email']}</p>
+            </div>""", unsafe_allow_html=True)
+
+# --- CASE STATUS TRACKER ---
+elif menu == "Case Status":
+    st.markdown('<p class="section-title">🔍 Case Status Tracker</p><p class="section-subtitle">Check your court case status via eCourts</p>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="rights-card" style="border-left-color:#3498db;margin-bottom:20px">
+        <h4>ℹ️ How to Check Case Status</h4>
+        <p>The eCourts portal provides real-time case status for all District & High Courts in India. You can search by CNR number, party name, FIR number, or advocate name.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    search_type = st.radio("Search By", ["CNR Number", "Party Name", "FIR Number", "Advocate Name"], horizontal=True)
+    search_val = st.text_input(f"Enter {search_type}", placeholder=f"e.g. {'TNCH010012342023' if search_type=='CNR Number' else 'Rajesh Kumar'}")
+    court_type = st.selectbox("Court Type", ["District Court", "High Court", "Supreme Court"])
+    state_case = st.selectbox("State", sorted(["Tamil Nadu","Maharashtra","Delhi","Karnataka","Uttar Pradesh","West Bengal","Rajasthan","Gujarat","Madhya Pradesh","Kerala","Andhra Pradesh","Telangana","Punjab","Haryana","Bihar","Odisha","Assam","Jharkhand"]))
+    if st.button("🔍 Check Case Status", use_container_width=True, key="check_case"):
+        if not search_val.strip():
+            st.warning("⚠️ Please enter a search value.")
+        else:
+            # Build direct eCourts URL
+            if court_type == "Supreme Court":
+                url = "https://www.sci.gov.in/case-status/"
+            elif court_type == "High Court":
+                url = f"https://hcservices.ecourts.gov.in/ecourtindiaHC/"
+            else:
+                url = f"https://services.ecourts.gov.in/ecourtindiaapp/"
+            st.markdown(f"""
+            <div class="result-card">
+                <div class="result-header"><span>🔍</span> Case Search — {court_type}</div>
+                <p style="color:#8a9bb0">Searching for <b style="color:#e8dcc8">{search_val}</b> in {state_case} {court_type}</p>
+                <div style="margin-top:16px">
+                    <p style="color:#c9a84c;font-weight:600">Direct Links to Check Status:</p>
+                    <p style="margin:8px 0"><a href="{url}" target="_blank" style="color:#3498db">🔗 Open {court_type} eCourts Portal →</a></p>
+                    <p style="margin:8px 0"><a href="https://services.ecourts.gov.in/ecourtindiaapp/" target="_blank" style="color:#3498db">🔗 eCourts Services Portal →</a></p>
+                    <p style="margin:8px 0"><a href="https://play.google.com/store/apps/details?id=in.gov.ecourts.eCourtsServices" target="_blank" style="color:#3498db">📱 Download eCourts App →</a></p>
+                </div>
+                <div style="margin-top:16px;padding:12px;background:rgba(52,152,219,0.08);border-radius:10px;border:1px solid rgba(52,152,219,0.2)">
+                    <p style="color:#3498db;margin:0;font-size:0.85rem;">💡 Tip: Use your <b>CNR Number</b> (Case Number Record) for the fastest and most accurate search. It's printed on all court documents.</p>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
 # --- ABOUT ---
 elif menu == "About":
