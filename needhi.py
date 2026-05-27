@@ -128,6 +128,8 @@ if "voice_text" not in st.session_state:
     st.session_state.voice_text = ""
 if "chip_query" not in st.session_state:
     st.session_state.chip_query = ""
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = True
 
 # --- Inject faded logo as background watermark ---
 _logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "needhi.png")
@@ -136,26 +138,60 @@ if os.path.exists(_logo_path):
     with open(_logo_path, "rb") as _f:
         _logo_b64 = base64.b64encode(_f.read()).decode()
 
+dark = st.session_state.dark_mode
+
+if dark:
+    bg = "#0d1117"; sidebar_bg = "linear-gradient(180deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%)"
+    text = "#e8dcc8"; subtext = "#8a9bb0"; card_bg = "rgba(255,255,255,0.04)"
+    input_bg = "rgba(255,255,255,0.06)"; input_color = "#e8dcc8"
+    card_border = "rgba(201,168,76,0.15)"; rights_h4 = "#e8dcc8"; rights_p = "#8a9bb0"
+    info_h3 = "#e8dcc8"; info_p = "#8a9bb0"; section_title = "#e8dcc8"; section_sub = "#6a7f94"
+    chat_ai_bg = "rgba(255,255,255,0.05)"; chat_ai_color = "#c8d8e8"
+else:
+    bg = "#f0ece4"; sidebar_bg = "linear-gradient(180deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%)"
+    text = "#1a1a2e"; subtext = "#4a5568"; card_bg = "rgba(255,255,255,0.95)"
+    input_bg = "#ffffff"; input_color = "#1a1a2e"
+    card_border = "rgba(201,168,76,0.3)"; rights_h4 = "#1a1a2e"; rights_p = "#4a5568"
+    info_h3 = "#1a1a2e"; info_p = "#4a5568"; section_title = "#1a1a2e"; section_sub = "#4a5568"
+    chat_ai_bg = "rgba(255,255,255,0.9)"; chat_ai_color = "#1a1a2e"
+
 st.markdown(f"""
 <style>
-    .stApp {{
-        background-color: #0d1117 !important;
-    }}
+    .stApp {{ background-color: {bg} !important; }}
     .stApp::after {{
-        content: '';
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
+        content: ''; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
         background-image: url('data:image/png;base64,{_logo_b64}');
-        background-repeat: no-repeat;
-        background-position: center 45%;
-        background-size: 32% auto;
-        background-attachment: fixed;
-        opacity: 0.06;
-        z-index: 0;
-        pointer-events: none;
+        background-repeat: no-repeat; background-position: center 45%;
+        background-size: 32% auto; background-attachment: fixed;
+        opacity: 0.06; z-index: 0; pointer-events: none;
     }}
-    [data-testid="stHeader"] {{ background: #0d1117 !important; height: 0 !important; min-height: 0 !important; }}
-    section[data-testid="stSidebar"] {{ background: linear-gradient(180deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%) !important; }}
+    [data-testid="stHeader"] {{ background: {bg} !important; height: 0 !important; min-height: 0 !important; }}
+    section[data-testid="stSidebar"] {{ background: {sidebar_bg} !important; }}
+    .stApp {{ color: {text}; }}
+    .stTextInput > div > div > input {{
+        background: {input_bg} !important; color: {input_color} !important;
+        border: 1.5px solid rgba(201,168,76,0.3) !important; border-radius: 10px !important;
+        padding: 14px 18px !important; font-size: 1rem !important;
+    }}
+    .stTextInput label {{ color: {subtext} !important; }}
+    .stTextArea > div > div > textarea {{
+        background: {input_bg} !important; color: {input_color} !important;
+        border: 1.5px solid rgba(201,168,76,0.3) !important; border-radius: 10px !important;
+    }}
+    .rights-card {{ background: {card_bg}; border-color: {card_border}; }}
+    .rights-card h4 {{ color: {rights_h4}; }}
+    .rights-card p {{ color: {rights_p}; }}
+    .info-card {{ background: {card_bg}; border-color: {card_border}; }}
+    .info-card h3 {{ color: {info_h3}; }}
+    .info-card p {{ color: {info_p}; }}
+    .result-card {{ background: {card_bg}; border-color: {card_border}; }}
+    .result-header {{ color: {text}; }}
+    .section-title {{ color: {section_title}; }}
+    .section-subtitle {{ color: {section_sub}; }}
+    .chat-bubble-ai {{ background: {chat_ai_bg}; color: {chat_ai_color}; }}
+    .query-box {{ background: {card_bg}; border-color: {card_border}; }}
+    .related-box {{ background: {card_bg}; }}
+    p, span, label, div {{ color: inherit; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -646,7 +682,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- TOP NAVBAR + LANGUAGE TOGGLE ---
-nav_col, lang_col = st.columns([4, 1])
+nav_col, lang_col, theme_col = st.columns([4, 0.7, 0.5])
 with nav_col:
     menu = option_menu(
         menu_title=None,
@@ -664,8 +700,14 @@ with nav_col:
 with lang_col:
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
     language = st.radio("", ["English", "Tamil"], horizontal=True, label_visibility="collapsed")
+with theme_col:
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    toggle_icon = "☀️" if st.session_state.dark_mode else "🌙"
+    if st.button(toggle_icon, key="theme_toggle", help="Toggle Dark/Light Mode"):
+        st.session_state.dark_mode = not st.session_state.dark_mode
+        st.rerun()
 
-# --- SIDEBAR (model info only) ---
+# --- SIDEBAR ---
 with st.sidebar:
     logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "needhi.png")
     if os.path.exists(logo_path):
@@ -679,7 +721,12 @@ with st.sidebar:
     st.markdown("---")
     display_name = active_model_name.replace("models/", "")
     st.markdown(f'<div class="model-badge">🤖 {display_name}</div>', unsafe_allow_html=True)
-
+    st.markdown("---")
+    # Dark/Light toggle
+    mode_label = "☀️ Switch to Light Mode" if st.session_state.dark_mode else "🌙 Switch to Dark Mode"
+    if st.button(mode_label, use_container_width=True, key="theme_toggle"):
+        st.session_state.dark_mode = not st.session_state.dark_mode
+        st.rerun()
     if st.session_state.chat_history:
         st.markdown("---")
         chat_export = "\n\n".join(
