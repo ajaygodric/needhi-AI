@@ -270,15 +270,34 @@ st.markdown("""
     }
     .stat-label { color: #6a7f94; font-size: 0.75rem; letter-spacing: 1px; text-transform: uppercase; }
 
-    /* Search Box */
-    .search-box {
+    /* Search Box - target via container */
+    section.main > div > div > div > div > div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] {
+        background: transparent;
+    }
+    /* Chip area */
+    .chip-section {
         background: rgba(255,255,255,0.04);
-        border-radius: 16px;
-        padding: 32px 36px;
-        margin-bottom: 24px;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+        border-radius: 16px 16px 0 0;
+        padding: 20px 24px 12px 24px;
         border: 1px solid rgba(201,168,76,0.2);
-        backdrop-filter: blur(10px);
+        border-bottom: none;
+        margin-top: 8px;
+    }
+    .chip-label {
+        color: #4a6080;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        margin-bottom: 10px;
+    }
+    /* Input area continuation */
+    .input-section {
+        background: rgba(255,255,255,0.04);
+        border-radius: 0 0 16px 16px;
+        padding: 16px 24px 24px 24px;
+        border: 1px solid rgba(201,168,76,0.2);
+        border-top: 1px solid rgba(201,168,76,0.08);
+        margin-bottom: 24px;
     }
     .stTextInput > div > div > input {
         background: rgba(255,255,255,0.06) !important;
@@ -829,10 +848,9 @@ if menu == "Home":
                 save_chat_history([])
                 st.rerun()
 
-        st.markdown('<div class="search-box">', unsafe_allow_html=True)
-
         # --- Suggested Question Chips ---
         suggestions = ["What is Section 498A?", "How to file an FIR?", "Tenant rights in India", "Cyber fraud complaint", "Bail process in India", "Consumer complaint"] if language == "English" else ["பிரிவு 498A என்ன?", "FIR எப்படி போடுவது?", "வாடகைதாரர் உரிமைகள்", "சைபர் மோசடி புகார்", "பிணை எப்படி பெறுவது?"]
+        st.markdown('<div class="chip-section"><div class="chip-label">Quick Questions</div></div>', unsafe_allow_html=True)
         chip_cols = st.columns(len(suggestions))
         for i, s in enumerate(suggestions):
             with chip_cols[i]:
@@ -840,6 +858,7 @@ if menu == "Home":
                     st.session_state.chip_query = s
                     st.rerun()
 
+        st.markdown('<div class="input-section">', unsafe_allow_html=True)
         col1, col2 = st.columns([5, 1])
         with col1:
             input_placeholder = "e.g. My landlord is not returning my deposit..." if language == "English" else "e.g. என் நண்பன் என்னை ஏமாற்றினான்..."
