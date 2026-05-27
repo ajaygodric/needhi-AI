@@ -4,3 +4,4 @@ streamlit-option-menu>=0.3.6
 Pillow>=10.0.0
 PyPDF2>=3.0.0
 speechrecognition>=3.10.0
+fpdf2>=2.7.0

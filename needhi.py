@@ -693,7 +693,61 @@ with st.sidebar:
             use_container_width=True,
         )
 
-def detect_severity(text):
+from fpdf import FPDF
+import re as _re
+
+def generate_chat_pdf(chat_history):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_margins(15, 15, 15)
+    # Title
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.set_text_color(30, 30, 60)
+    pdf.cell(0, 12, "Needhi AI - Legal Consultation", ln=True, align="C")
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(120, 120, 140)
+    from datetime import datetime
+    pdf.cell(0, 6, f"Generated: {datetime.now().strftime('%d %b %Y, %I:%M %p')}", ln=True, align="C")
+    pdf.ln(6)
+    pdf.set_draw_color(201, 168, 76)
+    pdf.set_line_width(0.5)
+    pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+    pdf.ln(6)
+    pairs = list(zip(chat_history[::2], chat_history[1::2]))
+    for i, ((_, user_text), (_, ai_text)) in enumerate(pairs):
+        # Question
+        pdf.set_fill_color(240, 240, 255)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(50, 50, 120)
+        pdf.cell(0, 7, f"Q{i+1}: You asked", ln=True, fill=True)
+        pdf.set_font("Helvetica", "", 10)
+        pdf.set_text_color(30, 30, 30)
+        clean_q = user_text.encode('latin-1', 'replace').decode('latin-1')
+        pdf.multi_cell(0, 6, clean_q)
+        pdf.ln(3)
+        # Answer
+        pdf.set_fill_color(255, 252, 235)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(120, 80, 0)
+        pdf.cell(0, 7, f"Needhi AI Response:", ln=True, fill=True)
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(30, 30, 30)
+        # Strip markdown symbols for clean PDF
+        clean_ai = _re.sub(r'[*#`]', '', ai_text)
+        clean_ai = clean_ai.encode('latin-1', 'replace').decode('latin-1')
+        pdf.multi_cell(0, 5.5, clean_ai)
+        pdf.ln(4)
+        if i < len(pairs) - 1:
+            pdf.set_draw_color(220, 220, 220)
+            pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+            pdf.ln(4)
+    # Footer
+    pdf.set_y(-20)
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.set_text_color(150, 150, 150)
+    pdf.cell(0, 6, "Needhi AI - Free Legal Aid for Every Indian Citizen | needhi-ai-xkd5twtphbfv9hdz35qe7d.streamlit.app", align="C")
+    return bytes(pdf.output())
+
     t = text.lower()
     badges = []
     if any(w in t for w in ["non-bailable", "non bailable", "cognizable"]):
@@ -873,25 +927,29 @@ if menu == "Home":
                 if len(ai_text) > 300:
                     with st.expander("📌 View full response"):
                         st.markdown(ai_text)
-                        dl_col, share_col = st.columns(2)
-                        with dl_col:
-                            st.download_button(
-                                "⬇️ Download",
-                                ai_text,
-                                file_name=f"Needhi_Response_{i+1}.txt",
-                                use_container_width=True,
-                                key=f"dl_{i}"
-                            )
-                        with share_col:
-                            share_text = f"Q: {user_text}\n\nNeedhi AI Answer:\n{ai_text}\n\n— Needhi AI (needhi-ai-xkd5twtphbfv9hdz35qe7d.streamlit.app)"
-                            wa_url = f"https://wa.me/?text={share_text[:500].replace(' ', '%20').replace('\n', '%0A')}"
-                            st.markdown(f'<a href="{wa_url}" target="_blank"><button style="width:100%;background:rgba(37,211,102,0.15);border:1.5px solid #25d366;color:#25d366;border-radius:10px;padding:10px;font-size:0.85rem;font-weight:600;cursor:pointer;">📤 Share on WhatsApp</button></a>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-            if st.button("🗑️ Clear Chat", key="clear_chat"):
-                st.session_state.chat_history = []
-                save_chat_history([])
-                st.rerun()
+            # PDF + Share row
+            pdf_bytes = generate_chat_pdf(st.session_state.chat_history)
+            c1, c2, c3 = st.columns([2, 2, 2])
+            with c1:
+                st.download_button(
+                    "📄 Download PDF",
+                    data=pdf_bytes,
+                    file_name="Needhi_Legal_Consultation.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="dl_pdf"
+                )
+            with c2:
+                app_url = "https://needhi-ai-xkd5twtphbfv9hdz35qe7d.streamlit.app"
+                wa_msg = f"I got free legal advice from Needhi AI!%0ADownload my consultation PDF from the app:%0A{app_url}"
+                st.markdown(f'<a href="https://wa.me/?text={wa_msg}" target="_blank"><button style="width:100%;background:rgba(37,211,102,0.15);border:1.5px solid #25d366;color:#25d366;border-radius:10px;padding:9px;font-size:0.85rem;font-weight:600;cursor:pointer;letter-spacing:0.5px;">📤 Share on WhatsApp</button></a>', unsafe_allow_html=True)
+            with c3:
+                if st.button("🗑️ Clear Chat", key="clear_chat", use_container_width=True):
+                    st.session_state.chat_history = []
+                    save_chat_history([])
+                    st.rerun()
 
         # --- Suggested Question Chips ---
         suggestions = ["What is Section 498A?", "How to file an FIR?", "Tenant rights in India", "Cyber fraud complaint", "Bail process in India", "Consumer complaint"] if language == "English" else ["பிரிவு 498A என்ன?", "FIR எப்படி போடுவது?", "வாடகைதாரர் உரிமைகள்", "சைபர் மோசடி புகார்", "பிணை எப்படி பெறுவது?"]
