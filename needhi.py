@@ -154,7 +154,7 @@ st.markdown(f"""
         z-index: 0;
         pointer-events: none;
     }}
-    [data-testid="stHeader"] {{ background: #0d1117 !important; }}
+    [data-testid="stHeader"] {{ background: #0d1117 !important; height: 0 !important; min-height: 0 !important; }}
     section[data-testid="stSidebar"] {{ background: linear-gradient(180deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%) !important; }}
 </style>
 """, unsafe_allow_html=True)
@@ -177,9 +177,13 @@ st.markdown("""
         opacity: 1 !important;
         pointer-events: auto !important;
     }
-    /* Remove default top padding Streamlit adds */
-    .block-container { padding-top: 0 !important; }
-    [data-testid="stAppViewContainer"] > section:first-child { padding-top: 0 !important; }
+    /* Fix page layout - remove excess top padding */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+        max-width: 100% !important;
+    }
 
     /* Sidebar */
     [data-testid="stSidebar"] {
