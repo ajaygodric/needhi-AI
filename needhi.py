@@ -800,6 +800,24 @@ def generate_chat_pdf(chat_history):
     badges.sort(key=lambda x: x[1])
     return "".join(b[0] for b in badges)
 
+def detect_severity(text):
+    t = text.lower()
+    badges = []
+    if any(w in t for w in ["non-bailable", "non bailable", "cognizable"]):
+        badges.append(('<span class="badge badge-red">🔴 Non-Bailable</span>', 0))
+    elif any(w in t for w in ["bailable"]):
+        badges.append(('<span class="badge badge-yellow">🟡 Bailable</span>', 1))
+    if any(w in t for w in ["civil", "civil suit", "civil dispute", "civil case"]):
+        badges.append(('<span class="badge badge-green">🟢 Civil Matter</span>', 2))
+    if any(w in t for w in ["criminal", "imprisonment", "jail", "prison", "arrest"]):
+        badges.append(('<span class="badge badge-red">⚠️ Criminal Offense</span>', 3))
+    if any(w in t for w in ["ipc", "bns", "crpc", "bnss", "section"]):
+        badges.append(('<span class="badge badge-blue">📖 IPC/BNS Applicable</span>', 4))
+    if not badges:
+        badges.append(('<span class="badge badge-gray">ℹ️ General Legal Query</span>', 5))
+    badges.sort(key=lambda x: x[1])
+    return "".join(b[0] for b in badges)
+
 def run_legal_query(query, language, context_history=None):
     safety = [
         {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
