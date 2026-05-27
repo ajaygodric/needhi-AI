@@ -118,7 +118,31 @@ def generate_with_fallback(prompt_or_parts, generation_config=None, safety_setti
         kwargs["stream"] = True
     return m.generate_content(prompt_or_parts, **kwargs), models_to_try[0]
 
-st.set_page_config(page_title="Needhi AI", page_icon="⚖️", layout="wide")
+st.set_page_config(page_title="Needhi AI", page_icon="⚖️", layout="wide", initial_sidebar_state="collapsed")
+
+# Force sidebar toggle button visible via JS
+import streamlit.components.v1 as _components
+_components.html("""
+<script>
+function showSidebarToggle() {
+    const selectors = [
+        '[data-testid="stSidebarCollapsedControl"]',
+        '[data-testid="collapsedControl"]',
+        'button[aria-label="Open sidebar"]',
+        'button[aria-label="Close sidebar"]',
+    ];
+    selectors.forEach(sel => {
+        document.querySelectorAll(sel).forEach(el => {
+            el.style.display = 'flex';
+            el.style.visibility = 'visible';
+            el.style.opacity = '1';
+            el.style.pointerEvents = 'auto';
+        });
+    });
+}
+setInterval(showSidebarToggle, 500);
+</script>
+""", height=0)
 
 # --- Session State Init ---
 if "chat_history" not in st.session_state:
@@ -168,8 +192,9 @@ st.markdown("""
 
     #MainMenu, footer { visibility: hidden; }
     [data-testid="stToolbar"] { display: none; }
-    [data-testid="stSidebarCollapsedControl"] { display: flex !important; visibility: visible !important; opacity: 1 !important; }
-    [data-testid="collapsedControl"] { display: flex !important; visibility: visible !important; opacity: 1 !important; }
+    /* Force sidebar toggle visible */
+    [data-testid="stSidebarCollapsedControl"] { display: flex !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; }
+    [data-testid="collapsedControl"] { display: flex !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; }
 
     /* Sidebar */
     [data-testid="stSidebar"] {
