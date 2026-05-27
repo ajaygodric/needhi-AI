@@ -512,6 +512,29 @@ st.markdown("""
         background: #c9a84c !important;
         color: white !important;
     }
+
+    /* Severity Badge */
+    .severity-bar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(201,168,76,0.1);
+    }
+    .badge {
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        border: 1.5px solid;
+    }
+    .badge-red    { background: rgba(231,76,60,0.15);   border-color: #e74c3c; color: #e74c3c; }
+    .badge-yellow { background: rgba(241,196,15,0.15);  border-color: #f1c40f; color: #f1c40f; }
+    .badge-green  { background: rgba(46,204,113,0.15);  border-color: #2ecc71; color: #2ecc71; }
+    .badge-blue   { background: rgba(52,152,219,0.15);  border-color: #3498db; color: #3498db; }
+    .badge-gray   { background: rgba(149,165,166,0.15); border-color: #95a5a6; color: #95a5a6; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -563,7 +586,24 @@ with st.sidebar:
             use_container_width=True,
         )
 
-# --- Shared helper: call Gemini and stream into a result card ---
+def detect_severity(text):
+    t = text.lower()
+    badges = []
+    if any(w in t for w in ["non-bailable", "non bailable", "cognizable"]):
+        badges.append(('<span class="badge badge-red">🔴 Non-Bailable</span>', 0))
+    elif any(w in t for w in ["bailable"]):
+        badges.append(('<span class="badge badge-yellow">🟡 Bailable</span>', 1))
+    if any(w in t for w in ["civil", "civil suit", "civil dispute", "civil case"]):
+        badges.append(('<span class="badge badge-green">🟢 Civil Matter</span>', 2))
+    if any(w in t for w in ["criminal", "imprisonment", "jail", "prison", "arrest"]):
+        badges.append(('<span class="badge badge-red">⚠️ Criminal Offense</span>', 3))
+    if any(w in t for w in ["ipc", "bns", "crpc", "bnss", "section"]):
+        badges.append(('<span class="badge badge-blue">📖 IPC/BNS Applicable</span>', 4))
+    if not badges:
+        badges.append(('<span class="badge badge-gray">ℹ️ General Legal Query</span>', 5))
+    badges.sort(key=lambda x: x[1])
+    return "".join(b[0] for b in badges)
+
 def run_legal_query(query, language, context_history=None):
     safety = [
         {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
@@ -648,6 +688,9 @@ TASK:
     if not full_text:
         full_text = "Response was blocked by safety filters. Please rephrase your query."
         result_placeholder.warning(full_text)
+    else:
+        badges_html = detect_severity(full_text)
+        st.markdown(f'<div class="severity-bar">{badges_html}</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     return full_text
 
