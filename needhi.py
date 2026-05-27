@@ -36,10 +36,11 @@ def save_chat_history(history):
         pass
 
 MODEL_FALLBACK_ORDER = [
+    "models/gemini-2.5-flash-lite",
+    "models/gemini-3.1-flash-lite",
+    "models/gemini-2.5-flash",
     "models/gemini-2.0-flash",
     "models/gemini-2.0-flash-lite",
-    "models/gemini-2.5-flash-lite",
-    "models/gemini-2.5-flash",
 ]
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -47,16 +48,16 @@ def get_working_model():
     try:
         genai.configure(api_key=GOOGLE_API_KEY)
         all_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        preferred = ["models/gemini-2.0-flash", "models/gemini-2.0-flash-lite", "models/gemini-2.5-flash-lite", "models/gemini-2.5-flash"]
+        preferred = ["models/gemini-2.5-flash-lite", "models/gemini-3.1-flash-lite", "models/gemini-2.5-flash", "models/gemini-2.0-flash", "models/gemini-2.0-flash-lite"]
         for p in preferred:
             if p in all_models:
                 return p
         flash_models = [m for m in all_models if "flash" in m.lower() and "preview" not in m and "tts" not in m]
         if flash_models:
             return flash_models[0]
-        return all_models[0] if all_models else "models/gemini-2.0-flash"
+        return all_models[0] if all_models else "models/gemini-2.5-flash-lite"
     except:
-        return "models/gemini-2.0-flash"
+        return "models/gemini-2.5-flash-lite"
 
 active_model_name = get_working_model()
 
