@@ -703,7 +703,7 @@ with lang_col:
 with theme_col:
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
     toggle_icon = "☀️" if st.session_state.dark_mode else "🌙"
-    if st.button(toggle_icon, key="theme_toggle", help="Toggle Dark/Light Mode"):
+    if st.button(toggle_icon, key="theme_toggle_nav", help="Toggle Dark/Light Mode"):
         st.session_state.dark_mode = not st.session_state.dark_mode
         st.rerun()
 
@@ -722,11 +722,6 @@ with st.sidebar:
     display_name = active_model_name.replace("models/", "")
     st.markdown(f'<div class="model-badge">🤖 {display_name}</div>', unsafe_allow_html=True)
     st.markdown("---")
-    # Dark/Light toggle
-    mode_label = "☀️ Switch to Light Mode" if st.session_state.dark_mode else "🌙 Switch to Dark Mode"
-    if st.button(mode_label, use_container_width=True, key="theme_toggle"):
-        st.session_state.dark_mode = not st.session_state.dark_mode
-        st.rerun()
     if st.session_state.chat_history:
         st.markdown("---")
         chat_export = "\n\n".join(
