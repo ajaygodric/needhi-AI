@@ -85,17 +85,9 @@ def generate_with_fallback(prompt_or_parts, generation_config=None, safety_setti
             last_err = e
             err_str = str(e)
             if "429" in err_str:
-                # Try to extract retry delay
                 delay_match = re.search(r'retry_delay\s*\{\s*seconds:\s*(\d+)', err_str)
-                wait = int(delay_match.group(1)) + 2 if delay_match else 5
-                # Try same model after wait first, then move to next
-                if model_name == models_to_try[0]:
-                    time.sleep(min(wait, 20))
-                    try:
-                        response = m.generate_content(prompt_or_parts, **kwargs)
-                        return response, model_name
-                    except Exception:
-                        pass
+                wait = int(delay_match.group(1)) + 2 if delay_match else 8
+                time.sleep(min(wait, 30))
                 continue
             raise e
     raise last_err
@@ -762,17 +754,26 @@ TASK:
     st.markdown('<div class="result-header"><span>⚖</span> Needhi AI — Legal Analysis</div>', unsafe_allow_html=True)
     full_text = ""
     result_placeholder = st.empty()
-    for chunk in response:
-        try:
-            if chunk.text:
-                full_text += chunk.text
-                result_placeholder.markdown(full_text)
-        except Exception:
-            pass
+    stream_error = None
+    try:
+        for chunk in response:
+            try:
+                if chunk.text:
+                    full_text += chunk.text
+                    result_placeholder.markdown(full_text)
+            except Exception:
+                pass
+    except Exception as e:
+        stream_error = str(e)
     if not full_text:
         full_text = "Response was blocked by safety filters. Please rephrase your query."
         result_placeholder.warning(full_text)
     else:
+        if stream_error:
+            if "429" in stream_error:
+                st.warning("⚠️ Rate limit reached mid-response. The above is a partial answer — please try again in a few seconds.")
+            else:
+                st.warning(f"⚠️ Stream interrupted: {stream_error}")
         badges_html = detect_severity(full_text)
         st.markdown(f'<div class="severity-bar">{badges_html}</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
