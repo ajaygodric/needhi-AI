@@ -947,7 +947,11 @@ if menu == "Home":
         </div>
         """, unsafe_allow_html=True)
 
-    tab_ask, tab_upload, tab_voice = st.tabs(["💬 Ask", "📄 Upload Document", "🎙️ Voice Input"])
+    if VOICE_AVAILABLE:
+        tab_ask, tab_upload, tab_voice = st.tabs(["💬 Ask", "📄 Upload Document", "🎙️ Voice Input"])
+    else:
+        tab_ask, tab_upload = st.tabs(["💬 Ask", "📄 Upload Document"])
+        tab_voice = None
 
     # ── TAB 1: ASK (with chat history) ──────────────────────────────────────
     with tab_ask:
@@ -1121,18 +1125,8 @@ Analyze this legal document image and provide:
             st.warning("⚠️ Please upload a file first.")
 
     # ── TAB 3: VOICE INPUT ───────────────────────────────────────────────────
-    with tab_voice:
-        if not VOICE_AVAILABLE:
-            st.markdown("""
-            <div class="rights-card" style="border-left-color:#3498db;text-align:center;padding:32px;">
-                <h4>🎤 Voice Input</h4>
-                <p>Voice input is available only on the <strong style="color:#c9a84c;">desktop app</strong>.<br>
-                To use voice, run Needhi AI locally:<br><br>
-                <code style="background:rgba(201,168,76,0.1);padding:4px 10px;border-radius:6px;color:#c9a84c;">python -m streamlit run needhi.py</code><br><br>
-                Then install: <code style="background:rgba(201,168,76,0.1);padding:4px 10px;border-radius:6px;color:#c9a84c;">pip install speechrecognition pyaudio</code></p>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
+    if tab_voice is not None:
+      with tab_voice:
             st.markdown('<p style="color:#8a9bb0;font-size:0.9rem;margin-bottom:16px">Click the button and speak your legal issue. It will be sent to the Ask tab.</p>', unsafe_allow_html=True)
             voice_lang = "ta-IN" if language == "Tamil" else "en-IN"
             if st.button("🎙️ Start Listening", key="voice_btn"):
