@@ -118,7 +118,7 @@ def generate_with_fallback(prompt_or_parts, generation_config=None, safety_setti
         kwargs["stream"] = True
     return m.generate_content(prompt_or_parts, **kwargs), models_to_try[0]
 
-st.set_page_config(page_title="Needhi AI", page_icon="⚖️", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Needhi AI", page_icon="⚖️", layout="wide", initial_sidebar_state="expanded")
 
 
 # --- Session State Init ---
