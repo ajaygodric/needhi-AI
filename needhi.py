@@ -9,6 +9,7 @@ from PIL import Image
 import PyPDF2
 try:
     import speech_recognition as sr
+    import pyaudio
     VOICE_AVAILABLE = True
 except ImportError:
     VOICE_AVAILABLE = False
