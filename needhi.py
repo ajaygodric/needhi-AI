@@ -833,61 +833,92 @@ Analyze this legal document image and provide:
 
 # --- KNOW YOUR RIGHTS ---
 elif menu == "Know Your Rights":
-    st.markdown('<p class="section-title">Know Your Rights</p><p class="section-subtitle">Fundamental rights every Indian citizen must know</p>', unsafe_allow_html=True)
+    if language == "Tamil":
+        st.markdown('<p class="section-title">உங்கள் உரிமைகள்</p><p class="section-subtitle">இந்திய சட்டத்தின் கீழ் உங்களுக்கு உள்ள அடிப்படை உரிமைகள்</p>', unsafe_allow_html=True)
+    else:
+        st.markdown('<p class="section-title">Know Your Rights</p><p class="section-subtitle">Fundamental rights every Indian citizen must know</p>', unsafe_allow_html=True)
 
     tab_police, tab_consumer, tab_tenant, tab_cyber = st.tabs(["👮 Police & Arrest", "🛒 Consumer", "🏠 Tenant", "💻 Cyber Crime"])
 
     with tab_police:
         rights_police = [
-            ("📝 Right to FIR", "Police are legally bound to register an FIR for cognizable offenses. If refused, you can complain to the SP or file a complaint in court. (Section 173 BNSS)"),
-            ("🔇 Right to Silence", "You have the right to remain silent when arrested. You cannot be forced to testify against yourself. (Article 20(3), Constitution)"),
-            ("⚖️ Right to Lawyer", "You have the right to consult a lawyer immediately upon arrest. Legal aid is free if you cannot afford one. (Article 22)"),
-            ("🏥 Right to Medical Aid", "Every arrested person has the right to free medical examination and treatment by a government doctor."),
-            ("🌙 No Night Arrest (Women)", "Women cannot be arrested after sunset and before sunrise except in exceptional circumstances with a female officer present."),
-            ("📋 Right to Know Grounds", "Police must inform you of the reason for your arrest at the time of arrest. (Section 47 BNSS)"),
-            ("👨‍👩‍👧 Right to Inform Family", "Police must inform a friend or relative of your arrest within 24 hours. (Section 50 BNSS)"),
+            ("📝 Right to FIR" if language=="English" else "📝 FIR உரிமை",
+             "Police are legally bound to register an FIR for cognizable offenses. If refused, complain to SP or file in court. (BNSS Section 173)" if language=="English" else "காவல் நிலையத்தில் புகார் அளித்தால் FIR பதிவு செய்ய கடமைப்பட்டுள்ளனர். மறுத்தால் SP-யிடம் புகார் செய்யலாம். (BNSS பிரிவு 173)"),
+            ("🔇 Right to Silence" if language=="English" else "🔇 மௌன உரிமை",
+             "You have the right to remain silent when arrested. Cannot be forced to testify against yourself. (Article 20(3))" if language=="English" else "கைது செய்யப்பட்டால் மௌனமாக இருக்கலாம். உங்களுக்கு எதிராக சாட்சி சொல்ல வேண்டியதில்லை. (அனுச்சேதம் 20(3))"),
+            ("⚖️ Right to Lawyer" if language=="English" else "⚖️ வழக்கறிஞர் உரிமை",
+             "Right to consult a lawyer immediately upon arrest. Legal aid is free if you cannot afford one. (Article 22)" if language=="English" else "கைது செய்யப்பட்டவுடன் வழக்கறிஞரை சந்திக்கும் உரிமை உண்டு. இலவச சட்ட உதவி கிடைக்கும். (அனுச்சேதம் 22)"),
+            ("🏥 Right to Medical Aid" if language=="English" else "🏥 மருத்துவ உரிமை",
+             "Every arrested person has the right to free medical examination and treatment by a government doctor." if language=="English" else "கைதியாக இருந்தாலும் அரசு மருத்துவரிடம் இலவச மருத்துவ பரிசோதனை பெறும் உரிமை உண்டு."),
+            ("🌙 No Night Arrest (Women)" if language=="English" else "🌙 இரவு கைது தடை",
+             "Women cannot be arrested after sunset and before sunrise except in exceptional circumstances with a female officer." if language=="English" else "பெண்களை சூரிய அஸ்தமனத்திற்கு பிறகு கைது செய்யக்கூடாது. பெண் காவலர் இருக்க வேண்டும்."),
+            ("📋 Right to Know Grounds" if language=="English" else "📋 கைது காரணம் அறியும் உரிமை",
+             "Police must inform you of the reason for your arrest at the time of arrest. (BNSS Section 47)" if language=="English" else "கைது செய்யும்போது காரணம் சொல்ல வேண்டும். (BNSS பிரிவு 47)"),
+            ("👨‍👩‍👧 Right to Inform Family" if language=="English" else "👨‍👩‍👧 குடும்பத்தினருக்கு தகவல்",
+             "Police must inform a friend or relative of your arrest within 24 hours. (BNSS Section 50)" if language=="English" else "கைது செய்த 24 மணி நேரத்தில் குடும்பத்தினருக்கு தகவல் தர வேண்டும். (BNSS பிரிவு 50)"),
         ]
-        for icon_title, desc in rights_police:
-            st.markdown(f'<div class="rights-card"><h4>{icon_title}</h4><p>{desc}</p></div>', unsafe_allow_html=True)
+        for t, d in rights_police:
+            st.markdown(f'<div class="rights-card"><h4>{t}</h4><p>{d}</p></div>', unsafe_allow_html=True)
 
     with tab_consumer:
         rights_consumer = [
-            ("🛡️ Right to Safety", "Protection against goods and services that are hazardous to life and property. Covered under Consumer Protection Act 2019."),
-            ("📢 Right to Information", "You have the right to know the quality, quantity, price, and standard of goods/services before purchase."),
-            ("🔄 Right to Return & Refund", "If a product is defective or service is deficient, you can demand replacement, repair, or full refund."),
-            ("🏛️ Consumer Forum", "File complaint at District Consumer Commission (claim up to ₹50 lakhs), State Commission (up to ₹2 crore), or National Commission (above ₹2 crore)."),
-            ("📱 E-Commerce Rights", "Online sellers must display all charges upfront. Hidden charges are illegal. You can return within the stated return policy period."),
-            ("⚡ Utility Complaints", "Electricity, water, telecom — file complaint with respective ombudsman. TRAI for telecom, CERC for electricity."),
-            ("🏦 Banking Fraud", "Report unauthorized transactions within 3 days to limit liability. File complaint with Banking Ombudsman (RBI) for free."),
+            ("🛡️ Right to Safety" if language=="English" else "🛡️ பாதுகாப்பு உரிமை",
+             "Protection against goods and services hazardous to life and property. Consumer Protection Act 2019." if language=="English" else "தீங்கு விளைவிக்கும் பொருட்கள் மற்றும் சேவைகளிலிருந்து பாதுகாப்பு பெறும் உரிமை. நுகர்வோர் பாதுகாப்பு சட்டம் 2019."),
+            ("📢 Right to Information" if language=="English" else "📢 தகவல் அறியும் உரிமை",
+             "Right to know the quality, quantity, price, and standard of goods/services before purchase." if language=="English" else "பொருளின் தரம், அளவு, விலை அறிந்து வாங்கும் உரிமை உண்டு."),
+            ("🔄 Right to Return & Refund" if language=="English" else "🔄 திரும்ப கொடுக்கும் உரிமை",
+             "If a product is defective or service is deficient, you can demand replacement, repair, or full refund." if language=="English" else "குறைபாடுள்ள பொருள் அல்லது சேவைக்கு மாற்று, பழுது அல்லது முழு பணம் திரும்ப கேட்கலாம்."),
+            ("🏛️ Consumer Forum" if language=="English" else "🏛️ நுகர்வோர் நீதிமன்றம்",
+             "District Commission (up to ₹50 lakhs), State Commission (up to ₹2 crore), National Commission (above ₹2 crore)." if language=="English" else "மாவட்ட ஆணையம் (₹50 லட்சம் வரை), மாநில ஆணையம் (₹2 கோடி வரை), தேசிய ஆணையம் (₹2 கோடிக்கு மேல்)."),
+            ("📱 E-Commerce Rights" if language=="English" else "📱 ஆன்லைன் வாங்குதல் உரிமை",
+             "Online sellers must display all charges upfront. Hidden charges are illegal. Return within stated return policy." if language=="English" else "மறைமுக கட்டணங்கள் சட்டவிரோதம். திரும்ப கொடுக்கும் கொள்கைக்குள் பொருளை திரும்ப கொடுக்கலாம்."),
+            ("⚡ Utility Complaints" if language=="English" else "⚡ பயன்பாட்டு சேவை புகார்",
+             "Electricity, water, telecom — file with respective ombudsman. TRAI for telecom, CERC for electricity." if language=="English" else "மின்சாரம், தண்ணீர், தொலைத்தொடர்பு — TRAI, CERC ஆம்புட்ஸ்மேனிடம் புகார் செய்யலாம்."),
+            ("🏦 Banking Fraud" if language=="English" else "🏦 வங்கி மோசடி",
+             "Report unauthorized transactions within 3 days to limit liability. File with Banking Ombudsman (RBI) for free." if language=="English" else "அங்கீகரிக்கப்படாத பரிவர்த்தனையை 3 நாட்களில் வங்கிக்கு தெரிவிக்கவும். RBI ஆம்புட்ஸ்மேனிடம் இலவசமாக புகார் செய்யலாம்."),
         ]
-        for icon_title, desc in rights_consumer:
-            st.markdown(f'<div class="rights-card"><h4>{icon_title}</h4><p>{desc}</p></div>', unsafe_allow_html=True)
+        for t, d in rights_consumer:
+            st.markdown(f'<div class="rights-card"><h4>{t}</h4><p>{d}</p></div>', unsafe_allow_html=True)
 
     with tab_tenant:
         rights_tenant = [
-            ("📄 Right to Rent Agreement", "Always insist on a written rent agreement. Oral agreements are valid but hard to enforce. Register agreements above 11 months."),
-            ("🔑 Right to Possession", "Landlord cannot forcibly evict you without a court order. Illegal eviction (changing locks, cutting utilities) is a criminal offense."),
-            ("💰 Security Deposit", "Landlord must return security deposit within 30 days of vacating. Deductions must be justified with proof of damage."),
-            ("🔧 Right to Repairs", "Landlord is responsible for major structural repairs. Tenant is responsible for minor day-to-day maintenance unless agreed otherwise."),
-            ("📢 Notice Period", "Landlord must give adequate notice (usually 1-3 months) before asking you to vacate. Check your agreement for exact terms."),
-            ("🚫 No Discrimination", "Landlord cannot deny tenancy based on religion, caste, or food habits. This is illegal under Indian law."),
-            ("⚖️ Rent Control Act", "Most states have Rent Control Acts protecting tenants from arbitrary rent hikes. Check your state's specific act."),
+            ("📄 Right to Rent Agreement" if language=="English" else "📄 வாடகை ஒப்பந்த உரிமை",
+             "Always insist on a written rent agreement. Register agreements above 11 months." if language=="English" else "எழுத்துப்பூர்வ வாடகை ஒப்பந்தம் கோருங்கள். 11 மாதத்திற்கு மேல் பதிவு செய்வது கட்டாயம்."),
+            ("🔑 Right to Possession" if language=="English" else "🔑 வசிக்கும் உரிமை",
+             "Landlord cannot forcibly evict you without a court order. Illegal eviction is a criminal offense." if language=="English" else "நீதிமன்ற உத்தரவு இல்லாமல் வீட்டு உரிமையாளர் வலுக்கட்டாயமாக வெளியேற்ற முடியாது. சட்டவிரோதம்."),
+            ("💰 Security Deposit" if language=="English" else "💰 வைப்புத்தொகை திரும்ப",
+             "Landlord must return security deposit within 30 days of vacating. Deductions must be justified with proof." if language=="English" else "வீடு காலி செய்த 30 நாட்களில் வைப்புத்தொகை திரும்ப தர வேண்டும். கழிவுகளுக்கு ஆதாரம் தேவை."),
+            ("🔧 Right to Repairs" if language=="English" else "🔧 பழுது சரிசெய்யும் உரிமை",
+             "Landlord is responsible for major structural repairs. Tenant handles minor day-to-day maintenance." if language=="English" else "முக்கிய கட்டமைப்பு பழுதுகளை வீட்டு உரிமையாளர் சரிசெய்ய வேண்டும். சிறிய பழுதுகள் வாடகைதாரர் பொறுப்பு."),
+            ("📢 Notice Period" if language=="English" else "📢 நோட்டீஸ் உரிமை",
+             "Landlord must give adequate notice (usually 1-3 months) before asking you to vacate." if language=="English" else "வெளியேற சொல்வதற்கு முன் போதுமான நோட்டீஸ் (பொதுவாக 1-3 மாதம்) தர வேண்டும்."),
+            ("🚫 No Discrimination" if language=="English" else "🚫 பாகுபாடு தடை",
+             "Landlord cannot deny tenancy based on religion, caste, or food habits. This is illegal under Indian law." if language=="English" else "மதம், சாதி, உணவு பழக்கம் காரணமாக வாடகை மறுப்பது சட்டவிரோதம்."),
+            ("⚖️ Rent Control Act" if language=="English" else "⚖️ வாடகை கட்டுப்பாட்டு சட்டம்",
+             "Most states have Rent Control Acts protecting tenants from arbitrary rent hikes. Check your state's specific act." if language=="English" else "பெரும்பாலான மாநிலங்களில் வாடகை கட்டுப்பாட்டு சட்டம் உள்ளது. தன்னிச்சையான வாடகை உயர்வை தடுக்கலாம்."),
         ]
-        for icon_title, desc in rights_tenant:
-            st.markdown(f'<div class="rights-card"><h4>{icon_title}</h4><p>{desc}</p></div>', unsafe_allow_html=True)
+        for t, d in rights_tenant:
+            st.markdown(f'<div class="rights-card"><h4>{t}</h4><p>{d}</p></div>', unsafe_allow_html=True)
 
     with tab_cyber:
         rights_cyber = [
-            ("🚨 Report Cybercrime", "Report at cybercrime.gov.in or call 1930 (National Cyber Crime Helpline). Available 24/7. File FIR at nearest police station."),
-            ("💳 Online Financial Fraud", "Report to your bank immediately and call 1930. Report within 3 days to limit your liability. Covered under IT Act Section 66C & 66D."),
-            ("📸 Morphing / Fake Photos", "Creating and sharing morphed images is a crime under IT Act Section 66E and BNS Section 77. Punishable with up to 3 years imprisonment."),
-            ("😡 Cyberbullying & Harassment", "Online harassment, stalking, and threatening messages are punishable under BNS Section 351 and IT Act Section 67. Screenshot and preserve evidence."),
-            ("🔐 Data Privacy", "Unauthorized access to your personal data is an offense under IT Act Section 43 & 66. You can demand deletion of your data from platforms."),
-            ("📧 Phishing & Scams", "Phishing emails/calls impersonating banks or government are punishable under IT Act Section 66D (up to 3 years + ₹1 lakh fine)."),
-            ("👶 Child Safety Online", "Any sexual content involving minors is a serious offense under POCSO Act and IT Act Section 67B. Report to cybercrime.gov.in immediately."),
+            ("🚨 Report Cybercrime" if language=="English" else "🚨 சைபர் கிரைம் புகார்",
+             "Report at cybercrime.gov.in or call 1930 (National Cyber Crime Helpline). Available 24/7." if language=="English" else "cybercrime.gov.in அல்லது 1930 (தேசிய சைபர் கிரைம் உதவி எண்) அழைக்கவும். 24/7 கிடைக்கும்."),
+            ("💳 Online Financial Fraud" if language=="English" else "💳 ஆன்லைன் நிதி மோசடி",
+             "Report to your bank immediately and call 1930. Report within 3 days to limit liability. IT Act Section 66C & 66D." if language=="English" else "உடனே வங்கிக்கு தெரிவித்து 1930 அழைக்கவும். 3 நாட்களில் புகார் செய்தால் பொறுப்பு குறையும். IT சட்டம் 66C & 66D."),
+            ("📸 Morphing / Fake Photos" if language=="English" else "📸 போலி புகைப்படம்",
+             "Creating and sharing morphed images is a crime under IT Act Section 66E and BNS Section 77. Up to 3 years imprisonment." if language=="English" else "மார்பிங் செய்த படங்கள் பகிர்வது IT சட்டம் 66E மற்றும் BNS 77 கீழ் குற்றம். 3 ஆண்டு சிறை தண்டனை."),
+            ("😡 Cyberbullying & Harassment" if language=="English" else "😡 சைபர் துன்புறுத்தல்",
+             "Online harassment and stalking are punishable under BNS Section 351 and IT Act Section 67. Screenshot and preserve evidence." if language=="English" else "ஆன்லைன் துன்புறுத்தல், தொடர்தல் BNS 351 மற்றும் IT சட்டம் 67 கீழ் தண்டிக்கப்படும். ஆதாரம் சேமிக்கவும்."),
+            ("🔐 Data Privacy" if language=="English" else "🔐 தரவு தனியுரிமை",
+             "Unauthorized access to your personal data is an offense under IT Act Section 43 & 66." if language=="English" else "உங்கள் தனிப்பட்ட தரவை அங்கீகரிக்கப்படாமல் அணுகுவது IT சட்டம் 43 & 66 கீழ் குற்றம்."),
+            ("📧 Phishing & Scams" if language=="English" else "📧 ஃபிஷிங் மோசடி",
+             "Phishing impersonating banks or government is punishable under IT Act Section 66D — up to 3 years + ₹1 lakh fine." if language=="English" else "வங்கி அல்லது அரசாங்கமாக நடிக்கும் ஃபிஷிங் IT சட்டம் 66D கீழ் 3 ஆண்டு சிறை + ₹1 லட்சம் அபராதம்."),
+            ("👶 Child Safety Online" if language=="English" else "👶 குழந்தை பாதுகாப்பு",
+             "Any sexual content involving minors is a serious offense under POCSO Act and IT Act Section 67B. Report immediately." if language=="English" else "சிறுவர்களை உள்ளடக்கிய ஆபாச உள்ளடக்கம் POCSO சட்டம் மற்றும் IT சட்டம் 67B கீழ் கடுமையான குற்றம்."),
         ]
-        for icon_title, desc in rights_cyber:
-            st.markdown(f'<div class="rights-card"><h4>{icon_title}</h4><p>{desc}</p></div>', unsafe_allow_html=True)
+        for t, d in rights_cyber:
+            st.markdown(f'<div class="rights-card"><h4>{t}</h4><p>{d}</p></div>', unsafe_allow_html=True)
 
 # --- ABOUT ---
 elif menu == "About":
