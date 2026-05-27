@@ -833,32 +833,61 @@ Analyze this legal document image and provide:
 
 # --- KNOW YOUR RIGHTS ---
 elif menu == "Know Your Rights":
-    if language == "Tamil":
-        st.markdown('<p class="section-title">உங்கள் உரிமைகள்</p><p class="section-subtitle">இந்திய சட்டத்தின் கீழ் உங்களுக்கு உள்ள அடிப்படை உரிமைகள்</p>', unsafe_allow_html=True)
-        rights = [
-            ("📝 FIR உரிமை", "காவல் நிலையத்தில் புகார் அளித்தால், அவர்கள் அதை FIR ஆக பதிவு செய்ய கடமைப்பட்டுள்ளனர். மறுத்தால் SP-யிடம் புகார் செய்யலாம்."),
-            ("🔇 மௌன உரிமை", "கைது செய்யப்பட்டால், நீங்கள் மௌனமாக இருக்கலாம். உங்களுக்கு எதிராக நீங்களே சாட்சி சொல்ல வேண்டியதில்லை."),
-            ("⚖️ வழக்கறிஞர் உரிமை", "கைது செய்யப்பட்டவுடன் வழக்கறிஞரை சந்திக்கும் உரிமை உங்களுக்கு உண்டு."),
-            ("🏥 மருத்துவ உரிமை", "கைதியாக இருந்தாலும் இலவச மருத்துவ சிகிச்சை பெறும் உரிமை உண்டு."),
-            ("🌙 இரவு கைது தடை", "பெண்களை சூரிய அஸ்தமனத்திற்கு பிறகு கைது செய்யக்கூடாது (அவசர நிலை தவிர)."),
-        ]
-    else:
-        st.markdown('<p class="section-title">Know Your Rights</p><p class="section-subtitle">Fundamental rights every Indian citizen must know</p>', unsafe_allow_html=True)
-        rights = [
-            ("📝 Right to FIR", "Police are legally bound to register an FIR for cognizable offenses. If refused, you can complain to the SP or file a complaint in court."),
-            ("🔇 Right to Silence", "You have the right to remain silent when arrested. You cannot be forced to testify against yourself (Article 20)."),
-            ("⚖️ Right to Lawyer", "You have the right to consult a lawyer immediately upon arrest. Legal aid is free if you cannot afford one."),
-            ("🏥 Right to Medical Aid", "Every arrested person has the right to free medical examination and treatment."),
-            ("🌙 No Night Arrest (Women)", "Women cannot be arrested after sunset and before sunrise except in exceptional circumstances."),
-        ]
+    st.markdown('<p class="section-title">Know Your Rights</p><p class="section-subtitle">Fundamental rights every Indian citizen must know</p>', unsafe_allow_html=True)
 
-    for icon_title, desc in rights:
-        st.markdown(f"""
-        <div class="rights-card">
-            <h4>{icon_title}</h4>
-            <p>{desc}</p>
-        </div>
-        """, unsafe_allow_html=True)
+    tab_police, tab_consumer, tab_tenant, tab_cyber = st.tabs(["👮 Police & Arrest", "🛒 Consumer", "🏠 Tenant", "💻 Cyber Crime"])
+
+    with tab_police:
+        rights_police = [
+            ("📝 Right to FIR", "Police are legally bound to register an FIR for cognizable offenses. If refused, you can complain to the SP or file a complaint in court. (Section 173 BNSS)"),
+            ("🔇 Right to Silence", "You have the right to remain silent when arrested. You cannot be forced to testify against yourself. (Article 20(3), Constitution)"),
+            ("⚖️ Right to Lawyer", "You have the right to consult a lawyer immediately upon arrest. Legal aid is free if you cannot afford one. (Article 22)"),
+            ("🏥 Right to Medical Aid", "Every arrested person has the right to free medical examination and treatment by a government doctor."),
+            ("🌙 No Night Arrest (Women)", "Women cannot be arrested after sunset and before sunrise except in exceptional circumstances with a female officer present."),
+            ("📋 Right to Know Grounds", "Police must inform you of the reason for your arrest at the time of arrest. (Section 47 BNSS)"),
+            ("👨‍👩‍👧 Right to Inform Family", "Police must inform a friend or relative of your arrest within 24 hours. (Section 50 BNSS)"),
+        ]
+        for icon_title, desc in rights_police:
+            st.markdown(f'<div class="rights-card"><h4>{icon_title}</h4><p>{desc}</p></div>', unsafe_allow_html=True)
+
+    with tab_consumer:
+        rights_consumer = [
+            ("🛡️ Right to Safety", "Protection against goods and services that are hazardous to life and property. Covered under Consumer Protection Act 2019."),
+            ("📢 Right to Information", "You have the right to know the quality, quantity, price, and standard of goods/services before purchase."),
+            ("🔄 Right to Return & Refund", "If a product is defective or service is deficient, you can demand replacement, repair, or full refund."),
+            ("🏛️ Consumer Forum", "File complaint at District Consumer Commission (claim up to ₹50 lakhs), State Commission (up to ₹2 crore), or National Commission (above ₹2 crore)."),
+            ("📱 E-Commerce Rights", "Online sellers must display all charges upfront. Hidden charges are illegal. You can return within the stated return policy period."),
+            ("⚡ Utility Complaints", "Electricity, water, telecom — file complaint with respective ombudsman. TRAI for telecom, CERC for electricity."),
+            ("🏦 Banking Fraud", "Report unauthorized transactions within 3 days to limit liability. File complaint with Banking Ombudsman (RBI) for free."),
+        ]
+        for icon_title, desc in rights_consumer:
+            st.markdown(f'<div class="rights-card"><h4>{icon_title}</h4><p>{desc}</p></div>', unsafe_allow_html=True)
+
+    with tab_tenant:
+        rights_tenant = [
+            ("📄 Right to Rent Agreement", "Always insist on a written rent agreement. Oral agreements are valid but hard to enforce. Register agreements above 11 months."),
+            ("🔑 Right to Possession", "Landlord cannot forcibly evict you without a court order. Illegal eviction (changing locks, cutting utilities) is a criminal offense."),
+            ("💰 Security Deposit", "Landlord must return security deposit within 30 days of vacating. Deductions must be justified with proof of damage."),
+            ("🔧 Right to Repairs", "Landlord is responsible for major structural repairs. Tenant is responsible for minor day-to-day maintenance unless agreed otherwise."),
+            ("📢 Notice Period", "Landlord must give adequate notice (usually 1-3 months) before asking you to vacate. Check your agreement for exact terms."),
+            ("🚫 No Discrimination", "Landlord cannot deny tenancy based on religion, caste, or food habits. This is illegal under Indian law."),
+            ("⚖️ Rent Control Act", "Most states have Rent Control Acts protecting tenants from arbitrary rent hikes. Check your state's specific act."),
+        ]
+        for icon_title, desc in rights_tenant:
+            st.markdown(f'<div class="rights-card"><h4>{icon_title}</h4><p>{desc}</p></div>', unsafe_allow_html=True)
+
+    with tab_cyber:
+        rights_cyber = [
+            ("🚨 Report Cybercrime", "Report at cybercrime.gov.in or call 1930 (National Cyber Crime Helpline). Available 24/7. File FIR at nearest police station."),
+            ("💳 Online Financial Fraud", "Report to your bank immediately and call 1930. Report within 3 days to limit your liability. Covered under IT Act Section 66C & 66D."),
+            ("📸 Morphing / Fake Photos", "Creating and sharing morphed images is a crime under IT Act Section 66E and BNS Section 77. Punishable with up to 3 years imprisonment."),
+            ("😡 Cyberbullying & Harassment", "Online harassment, stalking, and threatening messages are punishable under BNS Section 351 and IT Act Section 67. Screenshot and preserve evidence."),
+            ("🔐 Data Privacy", "Unauthorized access to your personal data is an offense under IT Act Section 43 & 66. You can demand deletion of your data from platforms."),
+            ("📧 Phishing & Scams", "Phishing emails/calls impersonating banks or government are punishable under IT Act Section 66D (up to 3 years + ₹1 lakh fine)."),
+            ("👶 Child Safety Online", "Any sexual content involving minors is a serious offense under POCSO Act and IT Act Section 67B. Report to cybercrime.gov.in immediately."),
+        ]
+        for icon_title, desc in rights_cyber:
+            st.markdown(f'<div class="rights-card"><h4>{icon_title}</h4><p>{desc}</p></div>', unsafe_allow_html=True)
 
 # --- ABOUT ---
 elif menu == "About":
