@@ -675,7 +675,7 @@ TASK:
         stream=True
     )
     st.markdown('<div class="result-card">', unsafe_allow_html=True)
-    st.markdown(f'<div class="result-header"><span>⚖</span> Needhi AI — Legal Analysis <small style="color:#6a7f94;font-size:0.7rem;margin-left:8px">{used_model.replace("models/","")}</small></div>', unsafe_allow_html=True)
+    st.markdown('<div class="result-header"><span>⚖</span> Needhi AI — Legal Analysis</div>', unsafe_allow_html=True)
     full_text = ""
     result_placeholder = st.empty()
     for chunk in response:
