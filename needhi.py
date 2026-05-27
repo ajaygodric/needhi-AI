@@ -107,6 +107,8 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = load_chat_history()
 if "voice_text" not in st.session_state:
     st.session_state.voice_text = ""
+if "chip_query" not in st.session_state:
+    st.session_state.chip_query = ""
 
 # --- Inject faded logo as background watermark ---
 _logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "needhi.png")
@@ -771,7 +773,12 @@ if menu == "Home":
     with tab_ask:
         # --- Suggested Questions ---
         suggestions = ["What is Section 498A?", "How to file an FIR?", "Tenant rights in India", "Cyber fraud complaint", "Bail process in India", "Consumer complaint"] if language == "English" else ["பிரிவு 498A என்ன?", "FIR எப்படி போடுவது?", "வாடகைதாரர் உரிமைகள்", "சைபர் மோசடி புகார்", "பிணை எப்படி பெறுவது?"]
-        st.markdown('<div class="chip-row">' + "".join(f'<span class="chip">📌 {s}</span>' for s in suggestions) + '</div>', unsafe_allow_html=True)
+        chip_cols = st.columns(len(suggestions))
+        for i, s in enumerate(suggestions):
+            with chip_cols[i]:
+                if st.button(s, key=f"chip_{i}", use_container_width=True):
+                    st.session_state.chip_query = s
+                    st.rerun()
 
         # Render existing chat history
         if st.session_state.chat_history:
@@ -815,8 +822,7 @@ if menu == "Home":
         with col1:
             input_placeholder = "e.g. My landlord is not returning my deposit..." if language == "English" else "e.g. என் நண்பன் என்னை ஏமாற்றினான்..."
             label = "Describe your legal issue" if language == "English" else "உங்கள் சட்ட பிரச்சனை என்ன?"
-            # Pre-fill from voice if available
-            default_val = st.session_state.voice_text
+            default_val = st.session_state.chip_query or st.session_state.voice_text
             st.session_state.voice_text = ""
             user_query = st.text_input(label, value=default_val, placeholder=input_placeholder, key="ask_input")
         with col2:
@@ -826,7 +832,11 @@ if menu == "Home":
             search_clicked = st.button(btn_text, use_container_width=True, key="ask_btn")
         st.markdown('</div>', unsafe_allow_html=True)
 
-        if search_clicked:
+        auto_run = bool(st.session_state.chip_query)
+        if st.session_state.chip_query:
+            st.session_state.chip_query = ""
+
+        if search_clicked or auto_run:
             if not user_query:
                 st.warning("⚠️ Please describe your legal issue first.")
             else:
