@@ -13,10 +13,21 @@ try:
 except ImportError:
     VOICE_AVAILABLE = False
 
-try:
-    GOOGLE_API_KEY = st.secrets["GEMINI_API_KEY"]
-except (KeyError, FileNotFoundError):
-    GOOGLE_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+def _load_api_keys():
+    keys = []
+    for k in ["GEMINI_API_KEY", "GEMINI_API_KEY_2", "GEMINI_API_KEY_3", "GEMINI_API_KEY_4"]:
+        try:
+            v = st.secrets.get(k) or os.environ.get(k, "")
+            if v:
+                keys.append(v)
+        except Exception:
+            v = os.environ.get(k, "")
+            if v:
+                keys.append(v)
+    return keys if keys else [""]
+
+API_KEYS = _load_api_keys()
+GOOGLE_API_KEY = API_KEYS[0]
 CHAT_HISTORY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat_history.json")
 
 def load_chat_history():
@@ -46,7 +57,7 @@ MODEL_FALLBACK_ORDER = [
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_working_model():
     try:
-        genai.configure(api_key=GOOGLE_API_KEY)
+        genai.configure(api_key=API_KEYS[0])
         all_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         preferred = ["models/gemini-2.5-flash-lite", "models/gemini-3.1-flash-lite", "models/gemini-2.5-flash", "models/gemini-2.0-flash", "models/gemini-2.0-flash-lite"]
         for p in preferred:
@@ -71,28 +82,41 @@ def generate_with_fallback(prompt_or_parts, generation_config=None, safety_setti
     import time, re
     models_to_try = [active_model_name] + [m for m in MODEL_FALLBACK_ORDER if m != active_model_name]
     last_err = None
-    for model_name in models_to_try:
-        try:
-            m = genai.GenerativeModel(model_name)
-            kwargs = {}
-            if generation_config:
-                kwargs["generation_config"] = generation_config
-            if safety_settings:
-                kwargs["safety_settings"] = safety_settings
-            if stream:
-                kwargs["stream"] = True
-            response = m.generate_content(prompt_or_parts, **kwargs)
-            return response, model_name
-        except Exception as e:
-            last_err = e
-            err_str = str(e)
-            if "429" in err_str:
-                delay_match = re.search(r'retry_delay\s*\{\s*seconds:\s*(\d+)', err_str)
-                wait = int(delay_match.group(1)) + 2 if delay_match else 8
-                time.sleep(min(wait, 30))
-                continue
-            raise e
-    raise last_err
+    for api_key in API_KEYS:
+        genai.configure(api_key=api_key)
+        for model_name in models_to_try:
+            try:
+                m = genai.GenerativeModel(model_name)
+                kwargs = {}
+                if generation_config:
+                    kwargs["generation_config"] = generation_config
+                if safety_settings:
+                    kwargs["safety_settings"] = safety_settings
+                if stream:
+                    kwargs["stream"] = True
+                response = m.generate_content(prompt_or_parts, **kwargs)
+                return response, model_name
+            except Exception as e:
+                last_err = e
+                err_str = str(e)
+                if "429" in err_str:
+                    # quota exhausted on this key+model, try next model
+                    continue
+                raise e
+        # all models exhausted on this key, try next key
+    # all keys exhausted, wait and retry once on first key+model
+    import time
+    time.sleep(10)
+    genai.configure(api_key=API_KEYS[0])
+    m = genai.GenerativeModel(models_to_try[0])
+    kwargs = {}
+    if generation_config:
+        kwargs["generation_config"] = generation_config
+    if safety_settings:
+        kwargs["safety_settings"] = safety_settings
+    if stream:
+        kwargs["stream"] = True
+    return m.generate_content(prompt_or_parts, **kwargs), models_to_try[0]
 
 st.set_page_config(page_title="Needhi AI", page_icon="⚖️", layout="wide")
 
