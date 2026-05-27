@@ -513,6 +513,36 @@ st.markdown("""
         color: white !important;
     }
 
+    /* Suggested question chips */
+    .chip-row { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 4px 0; }
+    .chip {
+        background: rgba(201,168,76,0.08);
+        border: 1px solid rgba(201,168,76,0.25);
+        border-radius: 20px;
+        padding: 6px 14px;
+        font-size: 0.78rem;
+        color: #c9a84c;
+        white-space: nowrap;
+    }
+
+    /* Related questions */
+    .related-box {
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(201,168,76,0.15);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-top: 16px;
+    }
+    .related-box p { color: #6a7f94; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 10px 0; }
+    .related-q {
+        display: block;
+        color: #8a9bb0;
+        font-size: 0.85rem;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(201,168,76,0.08);
+    }
+    .related-q:last-child { border-bottom: none; }
+
     /* Severity Badge */
     .severity-bar {
         display: flex;
@@ -536,6 +566,18 @@ st.markdown("""
     .badge-blue   { background: rgba(52,152,219,0.15);  border-color: #3498db; color: #3498db; }
     .badge-gray   { background: rgba(149,165,166,0.15); border-color: #95a5a6; color: #95a5a6; }
 </style>
+""", unsafe_allow_html=True)
+
+# --- EMERGENCY BANNER ---
+st.markdown("""
+<div style="background:linear-gradient(90deg,#1a1a2e,#0f3460,#1a1a2e);border-bottom:1px solid rgba(201,168,76,0.3);padding:8px 20px;display:flex;justify-content:center;gap:32px;flex-wrap:wrap;">
+    <span style="color:#e8dcc8;font-size:0.78rem;font-weight:500;">🚨 Emergency Helplines:</span>
+    <span style="color:#e74c3c;font-size:0.78rem;font-weight:700;">🚔 Police: 100</span>
+    <span style="color:#e74c3c;font-size:0.78rem;font-weight:700;">👩 Women: 1091</span>
+    <span style="color:#e74c3c;font-size:0.78rem;font-weight:700;">💻 Cyber: 1930</span>
+    <span style="color:#e74c3c;font-size:0.78rem;font-weight:700;">🏥 Ambulance: 108</span>
+    <span style="color:#c9a84c;font-size:0.78rem;font-weight:700;">⚖️ Legal Aid: 15100</span>
+</div>
 """, unsafe_allow_html=True)
 
 # --- TOP NAVBAR + LANGUAGE TOGGLE ---
@@ -727,6 +769,10 @@ if menu == "Home":
 
     # ── TAB 1: ASK (with chat history) ──────────────────────────────────────
     with tab_ask:
+        # --- Suggested Questions ---
+        suggestions = ["What is Section 498A?", "How to file an FIR?", "Tenant rights in India", "Cyber fraud complaint", "Bail process in India", "Consumer complaint"] if language == "English" else ["பிரிவு 498A என்ன?", "FIR எப்படி போடுவது?", "வாடகைதாரர் உரிமைகள்", "சைபர் மோசடி புகார்", "பிணை எப்படி பெறுவது?"]
+        st.markdown('<div class="chip-row">' + "".join(f'<span class="chip">📌 {s}</span>' for s in suggestions) + '</div>', unsafe_allow_html=True)
+
         # Render existing chat history
         if st.session_state.chat_history:
             st.markdown('<div class="chat-container">', unsafe_allow_html=True)
@@ -784,7 +830,7 @@ if menu == "Home":
             if not user_query:
                 st.warning("⚠️ Please describe your legal issue first.")
             else:
-                spin_text = "Analyzing your case..." if language == "English" else "AI சட்ட புத்தகங்களை தேடுகிறது..."
+                spin_text = "⚖️ Needhi AI is analyzing your case..." if language == "English" else "⚖️ நீதி AI உங்கள் வழக்கை ஆராய்கிறது..."
                 with st.spinner(spin_text):
                     try:
                         full_text = run_legal_query(user_query, language, st.session_state.chat_history)
@@ -792,7 +838,21 @@ if menu == "Home":
                         st.session_state.chat_history.append(("ai", full_text))
                         save_chat_history(st.session_state.chat_history)
                         st.write("")
-                        st.download_button("↓ Download Legal Report", full_text, file_name="Needhi_Legal_Report.txt", use_container_width=False)
+                        col_dl, col_copy = st.columns([3, 1])
+                        with col_dl:
+                            st.download_button("↓ Download Legal Report", full_text, file_name="Needhi_Legal_Report.txt", use_container_width=True)
+                        with col_copy:
+                            if st.button("📋 Copy Report", use_container_width=True, key="copy_btn"):
+                                st.toast("✅ Copied to clipboard! (use Ctrl+A on the result above)")
+                        # Related questions
+                        try:
+                            rel_prompt = f"Give exactly 3 short follow-up legal questions (one line each, no numbering, no bullets) a user might ask after: '{user_query}'. Indian law context only."
+                            rel_resp, _ = generate_with_fallback(rel_prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=150))
+                            rel_qs = [q.strip().lstrip('-').strip() for q in rel_resp.text.strip().split("\n") if q.strip()][:3]
+                            if rel_qs:
+                                st.markdown('<div class="related-box"><p>💡 People also ask</p>' + "".join(f'<span class="related-q">→ {q}</span>' for q in rel_qs) + '</div>', unsafe_allow_html=True)
+                        except Exception:
+                            pass
                     except Exception as e:
                         st.error(f"❌ Error: {e}")
 
