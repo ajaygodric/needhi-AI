@@ -831,7 +831,7 @@ if menu == "Home":
 
         st.markdown('<div class="search-box">', unsafe_allow_html=True)
 
-        # --- Suggested Question Chips inside search box ---
+        # --- Suggested Question Chips ---
         suggestions = ["What is Section 498A?", "How to file an FIR?", "Tenant rights in India", "Cyber fraud complaint", "Bail process in India", "Consumer complaint"] if language == "English" else ["பிரிவு 498A என்ன?", "FIR எப்படி போடுவது?", "வாடகைதாரர் உரிமைகள்", "சைபர் மோசடி புகார்", "பிணை எப்படி பெறுவது?"]
         chip_cols = st.columns(len(suggestions))
         for i, s in enumerate(suggestions):
