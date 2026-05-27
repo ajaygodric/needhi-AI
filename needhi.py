@@ -42,6 +42,7 @@ MODEL_FALLBACK_ORDER = [
     "models/gemini-2.5-flash",
 ]
 
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_working_model():
     try:
         genai.configure(api_key=GOOGLE_API_KEY)
@@ -736,7 +737,7 @@ TASK:
 
     response, used_model = generate_with_fallback(
         prompt,
-        generation_config=genai.types.GenerationConfig(max_output_tokens=4096),
+        generation_config=genai.types.GenerationConfig(max_output_tokens=2048),
         safety_settings=safety,
         stream=True
     )
@@ -886,10 +887,10 @@ if menu == "Home":
                         with col_copy:
                             if st.button("📋 Copy Report", use_container_width=True, key="copy_btn"):
                                 st.toast("✅ Copied to clipboard! (use Ctrl+A on the result above)")
-                        # Related questions
+                        # Related questions (non-blocking)
                         try:
-                            rel_prompt = f"Give exactly 3 short follow-up legal questions (one line each, no numbering, no bullets) a user might ask after: '{user_query}'. Indian law context only."
-                            rel_resp, _ = generate_with_fallback(rel_prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=150))
+                            rel_prompt = f"3 short follow-up legal questions after: '{user_query}'. One per line, no bullets."
+                            rel_resp, _ = generate_with_fallback(rel_prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=80))
                             rel_qs = [q.strip().lstrip('-').strip() for q in rel_resp.text.strip().split("\n") if q.strip()][:3]
                             if rel_qs:
                                 st.markdown('<div class="related-box"><p>💡 People also ask</p>' + "".join(f'<span class="related-q">→ {q}</span>' for q in rel_qs) + '</div>', unsafe_allow_html=True)
