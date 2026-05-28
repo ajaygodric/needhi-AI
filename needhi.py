@@ -250,10 +250,6 @@ st.markdown(f"""
     .nav-scroll-arrow {{
         display: none !important;
     }}
-    @keyframes pulseArrow {{
-        0% {{ transform: translateY(-50%) scale(0.95); opacity: 0.6; }}
-        100% {{ transform: translateY(-50%) scale(1.15); opacity: 1; }}
-    }}
     @media (max-width: 768px) {{
         .stApp::after {{
             background-size: 85% auto !important;
@@ -291,7 +287,6 @@ st.markdown(f"""
             font-weight: bold !important;
             z-index: 999999 !important;
             pointer-events: none !important;
-            animation: pulseArrow 1.2s infinite alternate !important;
             text-shadow: 0 0 8px rgba(201, 168, 76, 0.8) !important;
             align-items: center;
             justify-content: center;
