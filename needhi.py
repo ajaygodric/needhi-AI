@@ -184,14 +184,14 @@ st.markdown(f"""
         display: none !important;
     }}
     /* Style option_menu component to scroll horizontally on mobile */
-    div[data-testid="stCustomComponentV1"] {{
+    div[data-testid="stElementContainer"]:has(div[data-testid="stCustomComponentV1"]) {{
         overflow-x: auto !important;
         scrollbar-width: none !important;
     }}
-    div[data-testid="stCustomComponentV1"]::-webkit-scrollbar {{
+    div[data-testid="stElementContainer"]:has(div[data-testid="stCustomComponentV1"])::-webkit-scrollbar {{
         display: none !important;
     }}
-    div[data-testid="stCustomComponentV1"] iframe {{
+    div[data-testid="stCustomComponentV1"] {{
         min-width: 850px !important;
     }}
     [data-testid="stHeaderDecoration"] {{
