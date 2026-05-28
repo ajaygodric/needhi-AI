@@ -281,13 +281,12 @@ st.markdown(f"""
             position: absolute !important;
             right: 4px !important;
             top: 22px !important;
-            color: #c9a84c !important;
+            color: rgba(138, 155, 176, 0.6) !important;
             font-size: 26px !important;
             line-height: 1 !important;
             font-weight: bold !important;
             z-index: 999999 !important;
             pointer-events: none !important;
-            text-shadow: 0 0 8px rgba(201, 168, 76, 0.8) !important;
             align-items: center;
             justify-content: center;
             width: 24px;
