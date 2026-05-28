@@ -195,7 +195,7 @@ st.markdown(f"""
         overflow: visible !important;
     }}
     iframe[data-testid="stCustomComponentV1"] {{
-        min-width: 850px !important;
+        min-width: 1050px !important;
     }}
     [data-testid="stHeaderDecoration"] {{
         display: none !important;
