@@ -238,6 +238,9 @@ st.markdown(f"""
         fill: #c9a84c !important;
         color: #c9a84c !important;
     }}
+    .nav-scroll-arrow {{
+        display: none !important;
+    }}
     @keyframes bounceArrow {{
         0% {{ opacity: 0.4; right: 12px; }}
         100% {{ opacity: 1; right: 6px; }}
@@ -268,23 +271,23 @@ st.markdown(f"""
         ul[class*="nav"] {{
             padding-left: 42px !important;
         }}
-        div[data-testid="stColumn"]:has(iframe[data-testid="stCustomComponentV1"]) {{
-            position: relative !important;
-        }}
-        div[data-testid="stColumn"]:has(iframe[data-testid="stCustomComponentV1"])::after {{
-            content: "›" !important;
-            position: absolute !important;
-            right: 8px !important;
-            top: 50% !important;
-            transform: translateY(-50%) !important;
+        .nav-scroll-arrow {{
+            display: flex !important;
+            position: fixed !important;
+            right: 4px !important;
             color: #c9a84c !important;
             font-size: 26px !important;
             line-height: 1 !important;
             font-weight: bold !important;
-            z-index: 99 !important;
+            z-index: 999999 !important;
             pointer-events: none !important;
             animation: bounceArrow 1.2s infinite alternate !important;
-            text-shadow: 0 0 8px rgba(201, 168, 76, 0.6) !important;
+            text-shadow: 0 0 8px rgba(201, 168, 76, 0.8) !important;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            transform: translateY(-50%) !important;
         }}
     }}
 </style>
@@ -822,6 +825,56 @@ with nav_col:
 with lang_col:
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
     language = st.radio("", ["English", "Tamil"], horizontal=True, label_visibility="collapsed")
+st.markdown("""
+<div id="nav-scroll-indicator" class="nav-scroll-arrow">›</div>
+<script>
+(function() {
+    function setupScrollIndicator() {
+        const container = document.querySelector('div[data-testid="stElementContainer"]:has(iframe[data-testid="stCustomComponentV1"])');
+        const indicator = document.getElementById('nav-scroll-indicator');
+        if (!container || !indicator) return;
+
+        function updateIndicator() {
+            const rect = container.getBoundingClientRect();
+            // Vertically center it inside the option menu container
+            indicator.style.top = (rect.top + rect.height / 2) + 'px';
+
+            const scrollLeft = container.scrollLeft;
+            const scrollWidth = container.scrollWidth;
+            const clientWidth = container.clientWidth;
+
+            // Toggle arrow direction based on scroll position limits
+            if (scrollLeft + clientWidth >= scrollWidth - 15) {
+                indicator.innerText = "‹";
+            } else if (scrollLeft <= 5) {
+                indicator.innerText = "›";
+            }
+        }
+
+        // Attach scroll listeners
+        container.addEventListener('scroll', updateIndicator);
+        window.addEventListener('resize', updateIndicator);
+        
+        // Repeated updates for dynamic UI redraws
+        if (window.navScrollInterval) clearInterval(window.navScrollInterval);
+        window.navScrollInterval = setInterval(updateIndicator, 200);
+        updateIndicator();
+    }
+
+    let attempts = 0;
+    function trySetup() {
+        const container = document.querySelector('div[data-testid="stElementContainer"]:has(iframe[data-testid="stCustomComponentV1"])');
+        if (container) {
+            setupScrollIndicator();
+        } else if (attempts < 15) {
+            attempts++;
+            setTimeout(trySetup, 200);
+        }
+    }
+    trySetup();
+})();
+</script>
+""", unsafe_allow_html=True)
 
 from fpdf import FPDF
 import re as _re
