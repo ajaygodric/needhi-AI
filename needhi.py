@@ -280,7 +280,7 @@ st.markdown(f"""
             display: flex !important;
             position: absolute !important;
             right: 4px !important;
-            top: 50% !important;
+            top: 22px !important;
             color: #c9a84c !important;
             font-size: 26px !important;
             line-height: 1 !important;
