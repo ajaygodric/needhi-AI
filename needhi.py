@@ -281,17 +281,17 @@ st.markdown(f"""
             position: absolute !important;
             right: 4px !important;
             top: auto !important;
-            bottom: 0px !important;
+            bottom: 6px !important;
             color: rgba(138, 155, 176, 0.6) !important;
-            font-size: 26px !important;
+            font-size: 18px !important;
             line-height: 1 !important;
             font-weight: bold !important;
             z-index: 999999 !important;
             pointer-events: none !important;
             align-items: center;
             justify-content: center;
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             transform: none !important;
         }}
     }}
