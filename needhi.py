@@ -184,38 +184,38 @@ st.markdown(f"""
         display: none !important;
     }}
     /* Style option_menu component to scroll horizontally on mobile */
-    div[data-testid="stColumn"]:has(iframe[title="streamlit_option_menu.option_menu"]) {
+    div[data-testid="stColumn"]:has(iframe[title="streamlit_option_menu.option_menu"]) {{
         position: relative !important;
-    }
-    div[data-testid="stElementContainer"]:has(iframe[title="streamlit_option_menu.option_menu"]) {
+    }}
+    div[data-testid="stElementContainer"]:has(iframe[title="streamlit_option_menu.option_menu"]) {{
         overflow-x: auto !important;
         scrollbar-width: none !important;
-    }
-    div[data-testid="stElementContainer"]:has(iframe[title="streamlit_option_menu.option_menu"])::-webkit-scrollbar {
+    }}
+    div[data-testid="stElementContainer"]:has(iframe[title="streamlit_option_menu.option_menu"])::-webkit-scrollbar {{
         display: none !important;
-    }
-    div[data-testid="stElementContainer"]:has(iframe[title="streamlit_option_menu.option_menu"]) div {
+    }}
+    div[data-testid="stElementContainer"]:has(iframe[title="streamlit_option_menu.option_menu"]) div {{
         overflow: visible !important;
-    }
-    iframe[title="streamlit_option_menu.option_menu"] {
+    }}
+    iframe[title="streamlit_option_menu.option_menu"] {{
         min-width: 1050px !important;
-    }
-    iframe[title="streamlit.components.v1.html"] {
+    }}
+    iframe[title="streamlit.components.v1.html"] {{
         display: none !important;
         width: 0 !important;
         height: 0 !important;
         border: none !important;
-    }
-    [data-testid="stHeaderDecoration"] {
+    }}
+    [data-testid="stHeaderDecoration"] {{
         display: none !important;
-    }
-    [data-testid="stHeader"] {
+    }}
+    [data-testid="stHeader"] {{
         background: transparent !important;
         box-shadow: none !important;
         border: none !important;
         pointer-events: none !important;
-    }
-    [data-testid="stSidebarCollapsedControl"], [data-testid="collapsedControl"], [data-testid="stSidebarCollapseButton"] {
+    }}
+    [data-testid="stSidebarCollapsedControl"], [data-testid="collapsedControl"], [data-testid="stSidebarCollapseButton"] {{
         display: flex !important;
         visibility: visible !important;
         opacity: 1 !important;
@@ -231,8 +231,8 @@ st.markdown(f"""
         height: 36px !important;
         align-items: center !important;
         justify-content: center !important;
-    }
-    [data-testid="stSidebarCollapsedControl"] button, [data-testid="collapsedControl"] button, [data-testid="stSidebarCollapseButton"] button {
+    }}
+    [data-testid="stSidebarCollapsedControl"] button, [data-testid="collapsedControl"] button, [data-testid="stSidebarCollapseButton"] button {{
         color: #c9a84c !important;
         background: transparent !important;
         border: none !important;
@@ -241,46 +241,46 @@ st.markdown(f"""
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-    }
+    }}
     [data-testid="stSidebarCollapsedControl"] svg, [data-testid="collapsedControl"] svg, [data-testid="stSidebarCollapseButton"] svg,
-    [data-testid="stSidebarCollapsedControl"] span, [data-testid="collapsedControl"] span, [data-testid="stSidebarCollapseButton"] span {
+    [data-testid="stSidebarCollapsedControl"] span, [data-testid="collapsedControl"] span, [data-testid="stSidebarCollapseButton"] span {{
         fill: #c9a84c !important;
         color: #c9a84c !important;
-    }
-    .nav-scroll-arrow {
+    }}
+    .nav-scroll-arrow {{
         display: none !important;
-    }
-    @keyframes pulseArrow {
-        0% { transform: translateY(-50%) scale(0.95); opacity: 0.6; }
-        100% { transform: translateY(-50%) scale(1.15); opacity: 1; }
-    }
-    @media (max-width: 768px) {
-        .stApp::after {
+    }}
+    @keyframes pulseArrow {{
+        0% {{ transform: translateY(-50%) scale(0.95); opacity: 0.6; }}
+        100% {{ transform: translateY(-50%) scale(1.15); opacity: 1; }}
+    }}
+    @media (max-width: 768px) {{
+        .stApp::after {{
             background-size: 85% auto !important;
-        }
-        #emergency-banner {
+        }}
+        #emergency-banner {{
             justify-content: flex-start !important;
-        }
+        }}
         [data-testid="stSidebarCollapsedControl"], 
         [data-testid="collapsedControl"], 
-        [data-testid="stSidebarCollapseButton"] {
+        [data-testid="stSidebarCollapseButton"] {{
             top: 38px !important;
             left: 6px !important;
             width: 32px !important;
             height: 32px !important;
             background: #1a1a2e !important;
             border-bottom: 2px solid #c9a84c33 !important;
-        }
+        }}
         [data-testid="stSidebarCollapsedControl"] button, 
         [data-testid="collapsedControl"] button, 
-        [data-testid="stSidebarCollapseButton"] button {
+        [data-testid="stSidebarCollapseButton"] button {{
             width: 32px !important;
             height: 32px !important;
-        }
-        ul[class*="nav"] {
+        }}
+        ul[class*="nav"] {{
             padding-left: 42px !important;
-        }
-        .nav-scroll-arrow {
+        }}
+        .nav-scroll-arrow {{
             display: flex !important;
             position: absolute !important;
             right: 4px !important;
@@ -298,8 +298,8 @@ st.markdown(f"""
             width: 24px;
             height: 24px;
             transform: translateY(-50%) !important;
-        }
-    }
+        }}
+    }}
 </style>
 """, unsafe_allow_html=True)
 
