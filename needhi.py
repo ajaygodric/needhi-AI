@@ -53,23 +53,7 @@ def _load_api_keys():
 
 API_KEYS = _load_api_keys()
 GOOGLE_API_KEY = API_KEYS[0]
-CHAT_HISTORY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat_history.json")
-
-def load_chat_history():
-    if os.path.exists(CHAT_HISTORY_FILE):
-        try:
-            with open(CHAT_HISTORY_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return []
-    return []
-
-def save_chat_history(history):
-    try:
-        with open(CHAT_HISTORY_FILE, "w", encoding="utf-8") as f:
-            json.dump(history, f, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
+# Chat history is kept in memory (st.session_state) to prevent chat leakage between different users.
 
 MODEL_FALLBACK_ORDER = [
     "models/gemini-2.5-flash-lite",
@@ -137,7 +121,7 @@ st.set_page_config(page_title="Needhi AI", page_icon="⚖️", layout="wide", in
 
 # --- Session State Init ---
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = load_chat_history()
+    st.session_state.chat_history = []
 if "voice_text" not in st.session_state:
     st.session_state.voice_text = ""
 if "chip_query" not in st.session_state:
@@ -163,7 +147,7 @@ st.markdown(f"""
         background-position: center 45%;
         background-size: 32% auto;
         background-attachment: fixed;
-        opacity: 0.06;
+        opacity: 0.10;
         z-index: 0;
         pointer-events: none;
     }}
@@ -253,6 +237,7 @@ st.markdown(f"""
     @media (max-width: 768px) {{
         .stApp::after {{
             background-size: 85% auto !important;
+            opacity: 0.10 !important;
         }}
         #emergency-banner {{
             justify-content: flex-start !important;
@@ -1190,7 +1175,6 @@ if menu == "Home":
             with c3:
                 if st.button("🗑️ Clear Chat", key="clear_chat", use_container_width=True):
                     st.session_state.chat_history = []
-                    save_chat_history([])
                     st.rerun()
 
         # --- Suggested Question Chips ---
@@ -1232,7 +1216,6 @@ if menu == "Home":
                         full_text = run_legal_query(user_query, language, st.session_state.chat_history)
                         st.session_state.chat_history.append(("user", user_query))
                         st.session_state.chat_history.append(("ai", full_text))
-                        save_chat_history(st.session_state.chat_history)
                         st.write("")
                         col_dl, col_copy = st.columns([3, 1])
                         with col_dl:
@@ -1435,9 +1418,10 @@ elif menu == "FIR Draft":
             st.warning("⚠️ Please describe the incident first.")
         else:
             with st.spinner("Generating FIR draft..."):
-                ps_line = f"Police Station: {fir_ps}" if fir_ps else "Police Station: [Name of Police Station]"
-                name_line = fir_name if fir_name else "[Your Full Name]"
+                ps_line = f"Police Station: {fir_ps}" if fir_ps else "Police Station: ________________________"
+                name_line = fir_name if fir_name else "________________________"
                 prompt = f"""You are Needhi AI, an Indian legal assistant. Generate a formal FIR (First Information Report) draft in English based on the following incident. Use proper legal FIR format used in India.
+Any details that are not provided or are blank must be represented in the document as a clearly labeled blank underline (e.g., "________________________") so that it can be printed and filled in manually. Do not use generic bracketed placeholders (like '[Your Address]' or similar); always use blank underlines '________________________'.
 
 Incident: {fir_issue}
 State: {fir_state or 'India'}
@@ -1539,8 +1523,18 @@ elif menu == "Legal Templates":
 
     if st.button(f"⚖️ Generate {template_type}", use_container_width=True, key="gen_template"):
         with st.spinner("Generating document..."):
-            prompt = f"""You are Needhi AI. Generate a formal {template_type} legal document for India using these details: {fields}.
-Make it legally valid, properly formatted with all standard clauses. Use formal legal language."""
+            prompt = f"""You are Needhi AI, an expert Indian legal assistant.
+Generate a formal, legally valid {template_type} document for India.
+
+Here are the specific details to include in the document:
+{fields}
+
+Instructions:
+1. For any detail in the above list that is provided, insert it directly into its respective position in the document.
+2. For any detail/field that is empty, blank, or not provided (e.g., empty string ""), represent it in the document as a clearly labeled blank fillable underline (e.g., "________________________") so that it can be printed and filled in manually.
+3. Do NOT use brackets or text placeholders like "[Landlord Name]", "[Insert Date]", or "<Tenant Name>" for missing info; use actual underlines like "________________________" with a clear label preceding it (e.g., "Landlord Name: ________________________").
+4. Ensure the document has all standard legally binding clauses, a proper header, sections, covenants, witness signatures, deponent signatures, or verification sections as appropriate for a {template_type}.
+5. Use formal, professional legal language."""
             try:
                 resp, _ = generate_with_fallback(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=2048))
                 doc_text = resp.text
