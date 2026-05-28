@@ -281,7 +281,7 @@ st.markdown(f"""
             position: absolute !important;
             right: 4px !important;
             top: auto !important;
-            bottom: 6px !important;
+            bottom: 11px !important;
             color: rgba(138, 155, 176, 0.6) !important;
             font-size: 18px !important;
             line-height: 1 !important;
