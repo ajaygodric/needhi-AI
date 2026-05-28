@@ -2,17 +2,41 @@ import os
 import io
 import json
 import base64
+import urllib.request
 import streamlit as st
 import google.generativeai as genai
 from streamlit_option_menu import option_menu
 from PIL import Image
-import PyPDF2
+import pypdf
 try:
     import speech_recognition as sr
     import pyaudio
     VOICE_AVAILABLE = True
 except ImportError:
     VOICE_AVAILABLE = False
+
+def get_tamil_font(bold=False):
+    font_dir = os.path.dirname(os.path.abspath(__file__))
+    filename = "NotoSansTamil-Bold.ttf" if bold else "NotoSansTamil-Regular.ttf"
+    font_path = os.path.join(font_dir, filename)
+    if not os.path.exists(font_path):
+        try:
+            url = (
+                "https://fonts.gstatic.com/s/notosanstamil/v31/ieVc2YdFI3GCY6SyQy1KfStzYKZgzN1z4LKDbeZce-0429tBManUktuex7shpL0R.ttf"
+                if bold else
+                "https://fonts.gstatic.com/s/notosanstamil/v31/ieVc2YdFI3GCY6SyQy1KfStzYKZgzN1z4LKDbeZce-0429tBManUktuex7vGo70R.ttf"
+            )
+            req = urllib.request.Request(
+                url, 
+                headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+            )
+            with urllib.request.urlopen(req) as response:
+                with open(font_path, 'wb') as out_file:
+                    out_file.write(response.read())
+        except Exception:
+            pass
+    return font_path if os.path.exists(font_path) else None
+
 
 def _load_api_keys():
     keys = []
@@ -73,16 +97,11 @@ def get_working_model():
 
 active_model_name = get_working_model()
 
-try:
-    genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel(active_model_name)
-except:
-    st.error("⚠️ Error initializing model.")
+genai.configure(api_key=GOOGLE_API_KEY)
 
 def generate_with_fallback(prompt_or_parts, generation_config=None, safety_settings=None, stream=False):
-    import time, re
+    import time
     models_to_try = [active_model_name] + [m for m in MODEL_FALLBACK_ORDER if m != active_model_name]
-    last_err = None
     for api_key in API_KEYS:
         genai.configure(api_key=api_key)
         for model_name in models_to_try:
@@ -98,15 +117,9 @@ def generate_with_fallback(prompt_or_parts, generation_config=None, safety_setti
                 response = m.generate_content(prompt_or_parts, **kwargs)
                 return response, model_name
             except Exception as e:
-                last_err = e
-                err_str = str(e)
-                if "429" in err_str:
-                    # quota exhausted on this key+model, try next model
+                if "429" in str(e):
                     continue
                 raise e
-        # all models exhausted on this key, try next key
-    # all keys exhausted, wait and retry once on first key+model
-    import time
     time.sleep(10)
     genai.configure(api_key=API_KEYS[0])
     m = genai.GenerativeModel(models_to_try[0])
@@ -119,7 +132,7 @@ def generate_with_fallback(prompt_or_parts, generation_config=None, safety_setti
         kwargs["stream"] = True
     return m.generate_content(prompt_or_parts, **kwargs), models_to_try[0]
 
-st.set_page_config(page_title="Needhi AI", page_icon="⚖️", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Needhi AI", page_icon="⚖️", layout="wide", initial_sidebar_state="auto")
 
 
 # --- Session State Init ---
@@ -129,9 +142,6 @@ if "voice_text" not in st.session_state:
     st.session_state.voice_text = ""
 if "chip_query" not in st.session_state:
     st.session_state.chip_query = ""
-if "dark_mode" not in st.session_state:
-    st.session_state.dark_mode = True
-
 # --- Inject faded logo as background watermark ---
 _logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "needhi.png")
 _logo_b64 = ""
@@ -139,38 +149,10 @@ if os.path.exists(_logo_path):
     with open(_logo_path, "rb") as _f:
         _logo_b64 = base64.b64encode(_f.read()).decode()
 
-dark = st.session_state.dark_mode
-
-# Theme colors
-if dark:
-    bg          = "#0d1117"
-    sidebar_bg  = "linear-gradient(180deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%)"
-    nav_bg      = "#1a1a2e"
-    text        = "#e8dcc8"
-    subtext     = "#8a9bb0"
-    card_bg     = "rgba(255,255,255,0.04)"
-    card_border = "rgba(201,168,76,0.15)"
-    input_bg    = "rgba(255,255,255,0.06)"
-    hero_bg     = "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)"
-    btn_bg      = "linear-gradient(135deg, #1a1a2e, #16213e)"
-    header_bg   = bg
-else:
-    bg          = "#f5f0e8"
-    sidebar_bg  = "linear-gradient(180deg, #2c2c54 0%, #1a1a3e 60%, #0f3460 100%)"
-    nav_bg      = "#ffffff"
-    text        = "#1a1a2e"
-    subtext     = "#4a5568"
-    card_bg     = "rgba(255,255,255,0.9)"
-    card_border = "rgba(201,168,76,0.3)"
-    input_bg    = "rgba(255,255,255,0.95)"
-    hero_bg     = "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)"
-    btn_bg      = "linear-gradient(135deg, #1a1a2e, #16213e)"
-    header_bg   = bg
-
 st.markdown(f"""
 <style>
     .stApp {{
-        background-color: {bg} !important;
+        background-color: #0d1117 !important;
     }}
     .stApp::after {{
         content: '';
@@ -185,8 +167,90 @@ st.markdown(f"""
         z-index: 0;
         pointer-events: none;
     }}
-    [data-testid="stHeader"] {{ background: {header_bg} !important; height: 0 !important; min-height: 0 !important; }}
-    section[data-testid="stSidebar"] {{ background: {sidebar_bg} !important; }}
+    #emergency-banner {{
+        background: linear-gradient(90deg, #1a1a2e, #0f3460, #1a1a2e);
+        border-bottom: 1px solid rgba(201, 168, 76, 0.3);
+        padding: 8px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }}
+    #emergency-banner::-webkit-scrollbar {{
+        display: none !important;
+    }}
+    [data-testid="stHeaderDecoration"] {{
+        display: none !important;
+    }}
+    [data-testid="stHeader"] {{
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+        pointer-events: none !important;
+    }}
+    [data-testid="stSidebarCollapsedControl"], [data-testid="collapsedControl"], [data-testid="stSidebarCollapseButton"] {{
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        position: fixed !important;
+        top: 8px !important;
+        left: 8px !important;
+        z-index: 999999 !important;
+        background: rgba(201,168,76,0.15) !important;
+        border: 1px solid rgba(201,168,76,0.5) !important;
+        border-radius: 8px !important;
+        width: 36px !important;
+        height: 36px !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }}
+    [data-testid="stSidebarCollapsedControl"] button, [data-testid="collapsedControl"] button, [data-testid="stSidebarCollapseButton"] button {{
+        color: #c9a84c !important;
+        background: transparent !important;
+        border: none !important;
+        width: 36px !important;
+        height: 36px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }}
+    [data-testid="stSidebarCollapsedControl"] svg, [data-testid="collapsedControl"] svg, [data-testid="stSidebarCollapseButton"] svg,
+    [data-testid="stSidebarCollapsedControl"] span, [data-testid="collapsedControl"] span, [data-testid="stSidebarCollapseButton"] span {{
+        fill: #c9a84c !important;
+        color: #c9a84c !important;
+    }}
+    @media (max-width: 768px) {{
+        .stApp::after {{
+            background-size: 85% auto !important;
+        }}
+        #emergency-banner {{
+            justify-content: flex-start !important;
+        }}
+        [data-testid="stSidebarCollapsedControl"], 
+        [data-testid="collapsedControl"], 
+        [data-testid="stSidebarCollapseButton"] {{
+            top: 38px !important;
+            left: 6px !important;
+            width: 32px !important;
+            height: 32px !important;
+            background: #1a1a2e !important;
+            border-bottom: 2px solid #c9a84c33 !important;
+        }}
+        [data-testid="stSidebarCollapsedControl"] button, 
+        [data-testid="collapsedControl"] button, 
+        [data-testid="stSidebarCollapseButton"] button {{
+            width: 32px !important;
+            height: 32px !important;
+        }}
+        ul[class*="nav"] {{
+            padding-left: 42px !important;
+        }}
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -200,20 +264,49 @@ st.markdown("""
 
     #MainMenu, footer { visibility: hidden; }
     [data-testid="stToolbar"] { display: none; }
-    /* Sidebar toggle */
-    [data-testid="stSidebarCollapsedControl"],
-    [data-testid="collapsedControl"] {
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        pointer-events: auto !important;
-    }
-    /* Fix page layout - remove excess top padding */
+    /* Fix page layout */
     .block-container {
-        padding-top: 1rem !important;
-        padding-left: 2rem !important;
-        padding-right: 2rem !important;
+        padding-top: 0rem !important;
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
         max-width: 100% !important;
+    }
+
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+        .block-container {
+            padding-left: 0.75rem !important;
+            padding-right: 0.75rem !important;
+        }
+        .hero {
+            padding: 32px 16px !important;
+        }
+        .hero-title {
+            font-size: 2rem !important;
+            letter-spacing: 2px !important;
+        }
+        .hero-subtitle {
+            font-size: 0.88rem !important;
+        }
+        .stats-bar {
+            gap: 16px !important;
+        }
+        .result-card {
+            padding: 20px 16px !important;
+        }
+        .rights-card {
+            padding: 16px 14px !important;
+        }
+        .info-card {
+            padding: 20px 14px !important;
+        }
+        .chat-bubble-wrap {
+            max-width: 92% !important;
+        }
+        .stButton > button {
+            font-size: 0.78rem !important;
+            padding: 10px 12px !important;
+        }
     }
 
     /* Sidebar */
@@ -222,19 +315,6 @@ st.markdown("""
         border-right: 1px solid #c9a84c44;
     }
     [data-testid="stSidebar"] * { color: #e8dcc8 !important; }
-    [data-testid="stSidebar"] .stRadio label {
-        background: rgba(201,168,76,0.08) !important;
-        border: 1px solid rgba(201,168,76,0.2) !important;
-        border-radius: 8px !important;
-        padding: 10px 16px !important;
-        margin-bottom: 4px !important;
-        transition: all 0.2s !important;
-        font-size: 0.9rem !important;
-    }
-    [data-testid="stSidebar"] .stRadio label:hover {
-        background: rgba(201,168,76,0.18) !important;
-        border-color: #c9a84c !important;
-    }
     .sidebar-brand { text-align: center; padding: 10px 0 20px 0; }
     .sidebar-brand h1 {
         font-family: 'Playfair Display', serif;
@@ -249,24 +329,6 @@ st.markdown("""
         letter-spacing: 1px;
         text-transform: uppercase;
         margin: 0;
-    }
-    .sidebar-label {
-        color: #8a9bb0 !important;
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-        margin-bottom: 8px;
-        display: block;
-    }
-    .model-badge {
-        background: rgba(201,168,76,0.1);
-        border: 1px solid rgba(201,168,76,0.3);
-        border-radius: 6px;
-        padding: 8px 12px;
-        font-size: 0.78rem;
-        color: #c9a84c !important;
-        text-align: center;
-        margin-top: 8px;
     }
 
     /* Hero */
@@ -664,38 +726,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- EMERGENCY BANNER ---
-st.markdown("""
-<div style="background:linear-gradient(90deg,#1a1a2e,#0f3460,#1a1a2e);border-bottom:1px solid rgba(201,168,76,0.3);padding:8px 20px;display:flex;justify-content:center;gap:32px;flex-wrap:wrap;">
-    <span style="color:#e8dcc8;font-size:0.78rem;font-weight:500;">🚨 Emergency Helplines:</span>
-    <span style="color:#e74c3c;font-size:0.78rem;font-weight:700;">🚔 Police: 100</span>
-    <span style="color:#e74c3c;font-size:0.78rem;font-weight:700;">👩 Women: 1091</span>
-    <span style="color:#e74c3c;font-size:0.78rem;font-weight:700;">💻 Cyber: 1930</span>
-    <span style="color:#e74c3c;font-size:0.78rem;font-weight:700;">🏥 Ambulance: 108</span>
-    <span style="color:#c9a84c;font-size:0.78rem;font-weight:700;">⚖️ Legal Aid: 15100</span>
-</div>
-""", unsafe_allow_html=True)
-
-# --- TOP NAVBAR + LANGUAGE TOGGLE ---
-nav_col, lang_col = st.columns([4, 1])
-with nav_col:
-    menu = option_menu(
-        menu_title=None,
-        options=["Home", "Know Your Rights", "FIR Draft", "Legal Templates", "Lawyer Directory", "Case Status", "About", "Contact Lawyer"],
-        icons=["house-fill", "journal-text", "file-earmark-text", "file-earmark-ruled", "person-badge", "search", "info-circle-fill", "telephone-fill"],
-        default_index=0,
-        orientation="horizontal",
-        styles={
-            "container": {"padding": "0", "background-color": "#1a1a2e", "border-bottom": "2px solid #c9a84c33"},
-            "icon": {"color": "#c9a84c", "font-size": "14px"},
-            "nav-link": {"font-family": "Inter, sans-serif", "color": "#8a9bb0", "font-size": "0.82rem", "font-weight": "500", "padding": "16px 14px", "border-radius": "0", "letter-spacing": "0.3px"},
-            "nav-link-selected": {"background-color": "rgba(201,168,76,0.1)", "color": "#c9a84c", "border-bottom": "3px solid #c9a84c", "font-weight": "600"},
-        }
-    )
-with lang_col:
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-    language = st.radio("", ["English", "Tamil"], horizontal=True, label_visibility="collapsed")
-
 # --- SIDEBAR ---
 with st.sidebar:
     logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "needhi.png")
@@ -707,40 +737,93 @@ with st.sidebar:
         <p>AI Legal Assistant</p>
     </div>
     """, unsafe_allow_html=True)
-    st.markdown("---")
-    display_name = active_model_name.replace("models/", "")
-    st.markdown(f'<div class="model-badge">🤖 {display_name}</div>', unsafe_allow_html=True)
-    st.markdown("---")
-    # Dark/Light toggle
-    mode_label = "☀️ Switch to Light Mode" if st.session_state.dark_mode else "🌙 Switch to Dark Mode"
-    if st.button(mode_label, use_container_width=True, key="theme_toggle"):
-        st.session_state.dark_mode = not st.session_state.dark_mode
-        st.rerun()
-    if st.session_state.chat_history:
-        st.markdown("---")
-        chat_export = "\n\n".join(
-            f"{'You' if r == 'user' else 'Needhi AI'}:\n{t}"
-            for r, t in st.session_state.chat_history
-        )
-        st.download_button(
-            "💾 Export Chat",
-            chat_export,
-            file_name="Needhi_Chat_History.txt",
-            use_container_width=True,
-        )
+
+# --- EMERGENCY BANNER ---
+st.markdown("""
+<div id="emergency-banner">
+    <span style="color:#e8dcc8;font-size:0.78rem;font-weight:600;white-space:nowrap;">🚨 Emergency Helplines:</span>
+    <span style="color:#e74c3c;font-size:0.78rem;font-weight:700;white-space:nowrap;">🚔 Police: 100</span>
+    <span style="color:#e74c3c;font-size:0.78rem;font-weight:700;white-space:nowrap;">👩 Women: 1091</span>
+    <span style="color:#e74c3c;font-size:0.78rem;font-weight:700;white-space:nowrap;">💻 Cyber: 1930</span>
+    <span style="color:#e74c3c;font-size:0.78rem;font-weight:700;white-space:nowrap;">🏥 Ambulance: 108</span>
+    <span style="color:#c9a84c;font-size:0.78rem;font-weight:700;white-space:nowrap;">⚖️ Legal Aid: 15100</span>
+</div>
+""", unsafe_allow_html=True)
+
+# --- TOP NAVBAR + LANGUAGE TOGGLE ---
+st.markdown("""
+<style>
+    /* Force navbar into single scrollable row */
+    ul[class*="nav"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
+    }
+    ul[class*="nav"]::-webkit-scrollbar { display: none !important; }
+    ul[class*="nav"] li {
+        flex-shrink: 0 !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+nav_col, lang_col = st.columns([5, 1])
+with nav_col:
+    menu = option_menu(
+        menu_title=None,
+        options=["Home", "Know Your Rights", "FIR Draft", "Legal Templates", "Lawyer Directory", "Case Status", "About", "Contact Lawyer"],
+        icons=["house-fill", "journal-text", "file-earmark-text", "file-earmark-ruled", "person-badge", "search", "info-circle-fill", "telephone-fill"],
+        default_index=0,
+        orientation="horizontal",
+        styles={
+            "container": {"padding": "0", "background-color": "#1a1a2e", "border-bottom": "2px solid #c9a84c33", "overflow-x": "auto", "flex-wrap": "nowrap"},
+            "icon": {"color": "#c9a84c", "font-size": "13px"},
+            "nav-link": {"font-family": "Inter, sans-serif", "color": "#8a9bb0", "font-size": "0.75rem", "font-weight": "500", "padding": "12px 10px", "border-radius": "0", "letter-spacing": "0", "white-space": "nowrap"},
+            "nav-link-selected": {"background-color": "rgba(201,168,76,0.1)", "color": "#c9a84c", "border-bottom": "3px solid #c9a84c", "font-weight": "600"},
+        }
+    )
+with lang_col:
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    language = st.radio("", ["English", "Tamil"], horizontal=True, label_visibility="collapsed")
 
 from fpdf import FPDF
 import re as _re
+
+def clean_pdf_text(text, has_custom_font):
+    text = _re.sub(r'[*#`]', '', text)
+    if has_custom_font:
+        cleaned = []
+        for char in text:
+            code = ord(char)
+            if (32 <= code <= 126) or (0x0B80 <= code <= 0x0BFF) or code == 0x20B9 or char in "\n\t\r" or (160 <= code <= 255):
+                cleaned.append(char)
+            else:
+                cleaned.append("")
+        return "".join(cleaned)
+    else:
+        return text.encode('latin-1', 'replace').decode('latin-1')
 
 def generate_chat_pdf(chat_history):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_margins(15, 15, 15)
-    # Title
-    pdf.set_font("Helvetica", "B", 18)
+    
+    reg_font = get_tamil_font(bold=False)
+    bold_font = get_tamil_font(bold=True)
+    has_custom_font = reg_font is not None and bold_font is not None
+    
+    if has_custom_font:
+        pdf.add_font("NotoSansTamil", "", reg_font)
+        pdf.add_font("NotoSansTamil", "B", bold_font)
+        font_family = "NotoSansTamil"
+    else:
+        font_family = "Helvetica"
+        
+    pdf.set_font(font_family, "B", 16 if has_custom_font else 18)
     pdf.set_text_color(30, 30, 60)
     pdf.cell(0, 12, "Needhi AI - Legal Consultation", ln=True, align="C")
-    pdf.set_font("Helvetica", "", 9)
+    pdf.set_font(font_family, "", 9)
     pdf.set_text_color(120, 120, 140)
     from datetime import datetime
     pdf.cell(0, 6, f"Generated: {datetime.now().strftime('%d %b %Y, %I:%M %p')}", ln=True, align="C")
@@ -749,70 +832,79 @@ def generate_chat_pdf(chat_history):
     pdf.set_line_width(0.5)
     pdf.line(15, pdf.get_y(), 195, pdf.get_y())
     pdf.ln(6)
+    
     pairs = list(zip(chat_history[::2], chat_history[1::2]))
     for i, ((_, user_text), (_, ai_text)) in enumerate(pairs):
-        # Question
         pdf.set_fill_color(240, 240, 255)
-        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_font(font_family, "B", 10)
         pdf.set_text_color(50, 50, 120)
         pdf.cell(0, 7, f"Q{i+1}: You asked", ln=True, fill=True)
-        pdf.set_font("Helvetica", "", 10)
+        pdf.set_font(font_family, "", 10)
         pdf.set_text_color(30, 30, 30)
-        clean_q = user_text.encode('latin-1', 'replace').decode('latin-1')
+        
+        clean_q = clean_pdf_text(user_text, has_custom_font)
         pdf.multi_cell(0, 6, clean_q)
         pdf.ln(3)
-        # Answer
+        
         pdf.set_fill_color(255, 252, 235)
-        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_font(font_family, "B", 10)
         pdf.set_text_color(120, 80, 0)
         pdf.cell(0, 7, f"Needhi AI Response:", ln=True, fill=True)
-        pdf.set_font("Helvetica", "", 9)
+        pdf.set_font(font_family, "", 9)
         pdf.set_text_color(30, 30, 30)
-        # Strip markdown symbols for clean PDF
-        clean_ai = _re.sub(r'[*#`]', '', ai_text)
-        clean_ai = clean_ai.encode('latin-1', 'replace').decode('latin-1')
+        
+        clean_ai = clean_pdf_text(ai_text, has_custom_font)
         pdf.multi_cell(0, 5.5, clean_ai)
         pdf.ln(4)
         if i < len(pairs) - 1:
             pdf.set_draw_color(220, 220, 220)
             pdf.line(15, pdf.get_y(), 195, pdf.get_y())
             pdf.ln(4)
-    # Footer
+            
     pdf.set_y(-20)
-    pdf.set_font("Helvetica", "I", 8)
+    pdf.set_font(font_family, "I" if not has_custom_font else "", 8)
     pdf.set_text_color(150, 150, 150)
     pdf.cell(0, 6, "Needhi AI - Free Legal Aid for Every Indian Citizen | needhi-ai-xkd5twtphbfv9hdz35qe7d.streamlit.app", align="C")
     return bytes(pdf.output())
 
-    t = text.lower()
-    badges = []
-    if any(w in t for w in ["non-bailable", "non bailable", "cognizable"]):
-        badges.append(('<span class="badge badge-red">🔴 Non-Bailable</span>', 0))
-    elif any(w in t for w in ["bailable"]):
-        badges.append(('<span class="badge badge-yellow">🟡 Bailable</span>', 1))
-    if any(w in t for w in ["civil", "civil suit", "civil dispute", "civil case"]):
-        badges.append(('<span class="badge badge-green">🟢 Civil Matter</span>', 2))
-    if any(w in t for w in ["criminal", "imprisonment", "jail", "prison", "arrest"]):
-        badges.append(('<span class="badge badge-red">⚠️ Criminal Offense</span>', 3))
-    if any(w in t for w in ["ipc", "bns", "crpc", "bnss", "section"]):
-        badges.append(('<span class="badge badge-blue">📖 IPC/BNS Applicable</span>', 4))
-    if not badges:
-        badges.append(('<span class="badge badge-gray">ℹ️ General Legal Query</span>', 5))
-    badges.sort(key=lambda x: x[1])
-    return "".join(b[0] for b in badges)
+def generate_document_pdf(title, text):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_margins(20, 20, 20)
+    
+    reg_font = get_tamil_font(bold=False)
+    bold_font = get_tamil_font(bold=True)
+    has_custom_font = reg_font is not None and bold_font is not None
+    
+    if has_custom_font:
+        pdf.add_font("NotoSansTamil", "", reg_font)
+        pdf.add_font("NotoSansTamil", "B", bold_font)
+        font_family = "NotoSansTamil"
+    else:
+        font_family = "Helvetica"
+        
+    pdf.set_font(font_family, "B", 14)
+    pdf.cell(0, 10, title, ln=True, align="C")
+    pdf.ln(5)
+    pdf.set_font(font_family, "", 10)
+    
+    clean_text = clean_pdf_text(text, has_custom_font)
+    pdf.multi_cell(0, 6, clean_text)
+    return bytes(pdf.output())
+
 
 def detect_severity(text):
     t = text.lower()
     badges = []
-    if any(w in t for w in ["non-bailable", "non bailable", "cognizable"]):
+    if any(w in t for w in ["non-bailable", "non bailable", "cognizable", "பிணையில் வர முடியாத", "ஜாமீனில் வெளிவர முடியாத"]):
         badges.append(('<span class="badge badge-red">🔴 Non-Bailable</span>', 0))
-    elif any(w in t for w in ["bailable"]):
+    elif any(w in t for w in ["bailable", "பிணையில் வரக்கூடிய", "ஜாமீனில் வரக்கூடிய"]):
         badges.append(('<span class="badge badge-yellow">🟡 Bailable</span>', 1))
-    if any(w in t for w in ["civil", "civil suit", "civil dispute", "civil case"]):
+    if any(w in t for w in ["civil", "civil suit", "civil dispute", "civil case", "சிவில்", "உரிமையியல்"]):
         badges.append(('<span class="badge badge-green">🟢 Civil Matter</span>', 2))
-    if any(w in t for w in ["criminal", "imprisonment", "jail", "prison", "arrest"]):
+    if any(w in t for w in ["criminal", "imprisonment", "jail", "prison", "arrest", "குற்றம்", "குற்றவியல்", "கைது", "சிறை", "தண்டனை"]):
         badges.append(('<span class="badge badge-red">⚠️ Criminal Offense</span>', 3))
-    if any(w in t for w in ["ipc", "bns", "crpc", "bnss", "section"]):
+    if any(w in t for w in ["ipc", "bns", "crpc", "bnss", "section", "பிரிவு", "சட்டப்பிரிவு"]):
         badges.append(('<span class="badge badge-blue">📖 IPC/BNS Applicable</span>', 4))
     if not badges:
         badges.append(('<span class="badge badge-gray">ℹ️ General Legal Query</span>', 5))
@@ -1083,7 +1175,7 @@ if menu == "Home":
                     extra_q = f" Also answer: {doc_question}" if doc_question else ""
 
                     if file_type == "application/pdf":
-                        reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.read()))
+                        reader = pypdf.PdfReader(io.BytesIO(uploaded_file.read()))
                         doc_text = "\n".join(page.extract_text() or "" for page in reader.pages)
                         if not doc_text.strip():
                             st.warning("Could not extract text from this PDF. Try uploading an image instead.")
@@ -1281,18 +1373,7 @@ Make it formal, legally precise, and ready to submit. Include relevant IPC/BNS s
                     st.markdown(fir_text)
                     st.markdown('</div>', unsafe_allow_html=True)
                     # PDF download
-                    from fpdf import FPDF
-                    pdf = FPDF()
-                    pdf.add_page()
-                    pdf.set_margins(20, 20, 20)
-                    pdf.set_font("Helvetica", "B", 14)
-                    pdf.cell(0, 10, "FIR DRAFT - NEEDHI AI", ln=True, align="C")
-                    pdf.set_font("Helvetica", "", 10)
-                    clean = fir_text.encode('latin-1', 'replace').decode('latin-1')
-                    import re as _re2
-                    clean = _re2.sub(r'[*#`]', '', clean)
-                    pdf.multi_cell(0, 6, clean)
-                    pdf_bytes = bytes(pdf.output())
+                    pdf_bytes = generate_document_pdf("FIR DRAFT - NEEDHI AI", fir_text)
                     c1, c2 = st.columns(2)
                     with c1:
                         st.download_button("⬇️ Download FIR as PDF", data=pdf_bytes, file_name="FIR_Draft_Needhi.pdf", mime="application/pdf", use_container_width=True)
@@ -1375,17 +1456,7 @@ Make it legally valid, properly formatted with all standard clauses. Use formal 
                 st.markdown(f'<div class="result-header"><span>📋</span> {template_type} — Ready to Use</div>', unsafe_allow_html=True)
                 st.markdown(doc_text)
                 st.markdown('</div>', unsafe_allow_html=True)
-                from fpdf import FPDF
-                import re as _re3
-                pdf = FPDF()
-                pdf.add_page()
-                pdf.set_margins(20, 20, 20)
-                pdf.set_font("Helvetica", "B", 14)
-                pdf.cell(0, 10, template_type.upper(), ln=True, align="C")
-                pdf.set_font("Helvetica", "", 10)
-                clean = _re3.sub(r'[*#`]', '', doc_text).encode('latin-1', 'replace').decode('latin-1')
-                pdf.multi_cell(0, 6, clean)
-                pdf_bytes = bytes(pdf.output())
+                pdf_bytes = generate_document_pdf(template_type.upper(), doc_text)
                 st.download_button(f"⬇️ Download {template_type} PDF", data=pdf_bytes, file_name=f"{template_type.replace(' ','_')}_Needhi.pdf", mime="application/pdf", use_container_width=True)
             except Exception as e:
                 st.error(f"❌ Error: {e}")
