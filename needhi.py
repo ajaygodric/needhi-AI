@@ -238,6 +238,10 @@ st.markdown(f"""
         fill: #c9a84c !important;
         color: #c9a84c !important;
     }}
+    @keyframes bounceArrow {{
+        0% {{ opacity: 0.4; right: 12px; }}
+        100% {{ opacity: 1; right: 6px; }}
+    }}
     @media (max-width: 768px) {{
         .stApp::after {{
             background-size: 85% auto !important;
@@ -263,6 +267,24 @@ st.markdown(f"""
         }}
         ul[class*="nav"] {{
             padding-left: 42px !important;
+        }}
+        div[data-testid="stColumn"]:has(iframe[data-testid="stCustomComponentV1"]) {{
+            position: relative !important;
+        }}
+        div[data-testid="stColumn"]:has(iframe[data-testid="stCustomComponentV1"])::after {{
+            content: "›" !important;
+            position: absolute !important;
+            right: 8px !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            color: #c9a84c !important;
+            font-size: 26px !important;
+            line-height: 1 !important;
+            font-weight: bold !important;
+            z-index: 99 !important;
+            pointer-events: none !important;
+            animation: bounceArrow 1.2s infinite alternate !important;
+            text-shadow: 0 0 8px rgba(201, 168, 76, 0.6) !important;
         }}
     }}
 </style>
