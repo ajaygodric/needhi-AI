@@ -280,7 +280,8 @@ st.markdown(f"""
             display: flex !important;
             position: absolute !important;
             right: 4px !important;
-            top: 22px !important;
+            top: auto !important;
+            bottom: 0px !important;
             color: rgba(138, 155, 176, 0.6) !important;
             font-size: 26px !important;
             line-height: 1 !important;
@@ -291,7 +292,7 @@ st.markdown(f"""
             justify-content: center;
             width: 24px;
             height: 24px;
-            transform: translateY(-50%) !important;
+            transform: none !important;
         }}
     }}
 </style>
