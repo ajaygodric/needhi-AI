@@ -1,0 +1,203 @@
+const API_BASE = "";
+
+export const getApiUrl = (path) => `${API_BASE}${path}`;
+
+/**
+ * Sends a query to the legal chatbot and handles the streaming response.
+ * @param {string} query - The user query
+ * @param {string} language - "English" or "Tamil"
+ * @param {Array} history - Array of { role, text } message history
+ * @param {function} onChunk - Callback triggered when a text chunk is received
+ * @param {function} onDone - Callback triggered when the stream finishes
+ * @param {function} onError - Callback triggered on failure
+ */
+export const chatWithNeedhi = async (query, language, history, onChunk, onDone, onError) => {
+  try {
+    const response = await fetch(getApiUrl("/api/chat"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ query, language, history }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let done = false;
+    let fullText = "";
+
+    while (!done) {
+      const { value, done: readerDone } = await reader.read();
+      done = readerDone;
+      if (value) {
+        const chunk = decoder.decode(value, { stream: !done });
+        fullText += chunk;
+        onChunk(chunk, fullText);
+      }
+    }
+    onDone(fullText);
+  } catch (error) {
+    console.error("Chat error:", error);
+    onError(error);
+  }
+};
+
+/**
+ * Uploads a document (PDF/Image) for AI summarization.
+ */
+export const analyzeDocument = async (file, question) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (question) {
+    formData.append("question", question);
+  }
+
+  const response = await fetch(getApiUrl("/api/analyze-doc"), {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Error analyzing document");
+  }
+
+  return response.json();
+};
+
+/**
+ * Searches the IPC vs BNS database.
+ */
+export const bnsLookup = async (term = "", category = "") => {
+  const response = await fetch(getApiUrl("/api/bns-lookup"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ term, category }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to search BNS mappings");
+  }
+
+  return response.json();
+};
+
+/**
+ * Searches case registry.
+ */
+export const searchCases = async (search = "", searchType = "CNR Number") => {
+  const url = getApiUrl(`/api/cases?search=${encodeURIComponent(search)}&search_type=${encodeURIComponent(searchType)}`);
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error("Failed to fetch cases");
+  }
+  return response.json();
+};
+
+/**
+ * Searches mock lawyer directory.
+ */
+export const searchLawyers = async (specialization = "", city = "", search = "") => {
+  const url = getApiUrl(`/api/lawyers?specialization=${encodeURIComponent(specialization)}&city=${encodeURIComponent(city)}&search=${encodeURIComponent(search)}`);
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error("Failed to fetch lawyers");
+  }
+  return response.json();
+};
+
+/**
+ * Generates an FIR draft.
+ */
+export const generateFir = async (issue, state, ps, name) => {
+  const response = await fetch(getApiUrl("/api/generate-fir"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ issue, state, ps, name }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to generate FIR");
+  }
+
+  return response.json();
+};
+
+/**
+ * Generates a legal template document.
+ */
+export const generateTemplate = async (templateType, fields) => {
+  const response = await fetch(getApiUrl("/api/generate-template"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ template_type: templateType, fields }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to generate template");
+  }
+
+  return response.json();
+};
+
+/**
+ * Submits text content to be compiled into a custom PDF and downloads it.
+ */
+export const downloadPdf = async (title, text, defaultFilename = "Document.pdf") => {
+  try {
+    const response = await fetch(getApiUrl("/api/generate-pdf"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ title, text }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to generate PDF");
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = defaultFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("PDF generation failed:", error);
+    alert("Error downloading PDF: " + error.message);
+  }
+};
+
+/**
+ * Books an appointment with a lawyer.
+ */
+export const bookLawyer = async (bookingData) => {
+  const response = await fetch(getApiUrl("/api/book-lawyer"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(bookingData),
+  });
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to confirm lawyer booking");
+  }
+
+  return response.json();
+};

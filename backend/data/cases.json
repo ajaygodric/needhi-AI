@@ -1,0 +1,215 @@
+[
+  {
+    "cnr": "TNCH01-008942-2024",
+    "case_no": "CC 4122/2024",
+    "title": "Rajesh Kumar vs. State of Tamil Nadu & Anr.",
+    "tamil_title": "ராஜேஷ் குமார் எதிர் தமிழ்நாடு அரசு மற்றும் பலர்",
+    "court": "V Metropolitan Magistrate Court, Egmore, Chennai",
+    "tamil_court": "V பெருநகர குற்றவியல் நடுவர் நீதிமன்றம், எழும்பூர், சென்னை",
+    "judge": "Shri. M. Elangovan, M.A., M.L.",
+    "petitioner": "Rajesh Kumar",
+    "petitioner_adv": "M. K. Saravanan",
+    "respondent": "State of Tamil Nadu (Represented by Sub-Inspector, Egmore PS)",
+    "respondent_adv": "Public Prosecutor",
+    "filing_date": "12/03/2024",
+    "current_stage": "Evidence",
+    "current_stage_tamil": "சாட்சியம்",
+    "next_hearing": "12/06/2026",
+    "courtroom": "Court Hall No. 5",
+    "status": "Active",
+    "timeline": [
+      {
+        "date": "12/03/2024",
+        "action": "Case Filed",
+        "description": "Criminal complaint registered under BNS Section 318 (Cheating). Documents verified.",
+        "status": "completed"
+      },
+      {
+        "date": "28/03/2024",
+        "action": "First Hearing & Admission",
+        "description": "Case admitted by Hon'ble Magistrate. Summons ordered to Respondent.",
+        "status": "completed"
+      },
+      {
+        "date": "15/05/2024",
+        "action": "Service of Summons",
+        "description": "Respondent appeared in person. Bail application filed and granted under conditions.",
+        "status": "completed"
+      },
+      {
+        "date": "10/09/2024",
+        "action": "Framing of Charges",
+        "description": "Charges framed under BNS 318. Accused pleaded not guilty. Commenced evidence stage.",
+        "status": "completed"
+      },
+      {
+        "date": "24/02/2025",
+        "action": "Complainant Evidence (PW1)",
+        "description": "Examination of Complainant Rajesh Kumar. Chief examination concluded, cross-examination deferred.",
+        "status": "completed"
+      },
+      {
+        "date": "12/06/2026",
+        "action": "Cross Examination of PW1",
+        "description": "Scheduled for cross-examination of the complainant by defense counsel. Next step.",
+        "status": "current"
+      },
+      {
+        "date": "TBD",
+        "action": "Defense Evidence",
+        "description": "Presentation of evidence and witnesses by the defense team.",
+        "status": "pending"
+      },
+      {
+        "date": "TBD",
+        "action": "Final Arguments",
+        "description": "Closing arguments by both the Public Prosecutor and Defense Counsel.",
+        "status": "pending"
+      },
+      {
+        "date": "TBD",
+        "action": "Judgment",
+        "description": "Final order/judgment to be pronounced by the Magistrate.",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "cnr": "DLND01-002345-2023",
+    "case_no": "CS(COMM) 184/2023",
+    "title": "Alpha Tech Solutions vs. Nexa Global Ltd.",
+    "tamil_title": "ஆல்பா டெக் சொல்யூஷன்ஸ் எதிர் நெக்ஸா குளோபல் லிமிடெட்",
+    "court": "Delhi High Court (Commercial Division), New Delhi",
+    "tamil_court": "டெல்லி உயர் நீதிமன்றம் (வணிகப் பிரிவு), புது டெல்லி",
+    "judge": "Hon'ble Justice Ms. Pratibha M. Singh",
+    "petitioner": "Alpha Tech Solutions",
+    "petitioner_adv": "Sandeep Malhotra, Senior Advocate",
+    "respondent": "Nexa Global Ltd.",
+    "respondent_adv": "Priya Sharma, Advocate",
+    "filing_date": "18/06/2023",
+    "current_stage": "Arguments",
+    "current_stage_tamil": "வாதம்",
+    "next_hearing": "15/06/2026",
+    "courtroom": "Court Hall No. 12",
+    "status": "Active",
+    "timeline": [
+      {
+        "date": "18/06/2023",
+        "action": "Commercial Suit Filed",
+        "description": "Suit filed for intellectual property infringement and breach of contract. Claim value ₹2.5 Crores.",
+        "status": "completed"
+      },
+      {
+        "date": "02/07/2023",
+        "action": "Interim Injunction Order",
+        "description": "Ad-interim injunction granted restraining defendant from using the software code.",
+        "status": "completed"
+      },
+      {
+        "date": "20/09/2023",
+        "action": "Filing of Written Statement",
+        "description": "Written statement and counterclaims filed by Nexa Global Ltd.",
+        "status": "completed"
+      },
+      {
+        "date": "15/01/2024",
+        "action": "Admission and Denial",
+        "description": "Admission and denial of documents completed by both parties under Commercial Courts Act.",
+        "status": "completed"
+      },
+      {
+        "date": "14/05/2024",
+        "action": "Framing of Issues",
+        "description": "Trial issues framed by Court. Discovery procedures initiated.",
+        "status": "completed"
+      },
+      {
+        "date": "12/10/2024",
+        "action": "Evidence Recorded",
+        "description": "Witness affidavits filed. Commission-based cross-examinations completed and filed in court registry.",
+        "status": "completed"
+      },
+      {
+        "date": "15/06/2026",
+        "action": "Final Arguments",
+        "description": "Final hearing on merits. Scheduled for oral arguments by senior counsels.",
+        "status": "current"
+      },
+      {
+        "date": "TBD",
+        "action": "Judgment Reserved",
+        "description": "Court to reserve judgment for writing and future delivery.",
+        "status": "pending"
+      },
+      {
+        "date": "TBD",
+        "action": "Pronouncement of Judgment",
+        "description": "Delivery of final decree and orders in open court.",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "cnr": "MHUM02-005612-2022",
+    "case_no": "CR 104/2022",
+    "title": "State of Maharashtra vs. Rohan Sawant",
+    "tamil_title": "மகாராஷ்டிர மாநிலம் எதிர் ரோகன் சாவந்த்",
+    "court": "Sessions Court, Greater Mumbai",
+    "tamil_court": "அமர்வு நீதிமன்றம், பெருநகர மும்பை",
+    "judge": "Shri. S. R. Shinde, Sessions Judge",
+    "petitioner": "State of Maharashtra",
+    "petitioner_adv": "Special Public Prosecutor",
+    "respondent": "Rohan Sawant",
+    "respondent_adv": "Anil Deshmukh",
+    "filing_date": "04/02/2022",
+    "current_stage": "Judgment",
+    "current_stage_tamil": "தீர்ப்பு",
+    "next_hearing": "08/06/2026",
+    "courtroom": "Court Hall No. 3A",
+    "status": "Decided",
+    "timeline": [
+      {
+        "date": "04/02/2022",
+        "action": "FIR Registered",
+        "description": "FIR registered under IPC Section 307 (Attempt to murder). Accused arrested and remanded.",
+        "status": "completed"
+      },
+      {
+        "date": "30/04/2022",
+        "action": "Chargesheet Filed",
+        "description": "Police filed a detailed chargesheet with forensic reports and 12 witness statements.",
+        "status": "completed"
+      },
+      {
+        "date": "10/08/2022",
+        "action": "Charges Framed",
+        "description": "Charges formally framed under IPC 307. Trial dates allocated.",
+        "status": "completed"
+      },
+      {
+        "date": "12/03/2023",
+        "action": "Prosecution Evidence",
+        "description": "Examination of doctor, eyewitnesses and IO completed. Evidence closed.",
+        "status": "completed"
+      },
+      {
+        "date": "15/11/2023",
+        "action": "Statement of Accused (CrPC 313)",
+        "description": "Accused statement recorded. Denied charges, claimed false implication.",
+        "status": "completed"
+      },
+      {
+        "date": "12/06/2024",
+        "action": "Defense Arguments",
+        "description": "Arguments concluded by both prosecution and defense.",
+        "status": "completed"
+      },
+      {
+        "date": "08/06/2026",
+        "action": "Judgment Pronounced",
+        "description": "Accused found guilty under IPC Section 307. Sentenced to 5 years rigorous imprisonment and ₹50,000 fine.",
+        "status": "current"
+      }
+    ]
+  }
+]

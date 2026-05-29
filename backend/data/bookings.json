@@ -1,0 +1,67 @@
+[
+  {
+    "code": "ND-684681",
+    "lawyer_id": 1,
+    "lawyer_name": "Adv. K. R. Meenakshi Sundaram",
+    "specialization": "Criminal Law (குற்றவியல் சட்டம்)",
+    "client_name": "Test Client",
+    "client_email": "testclient@example.com",
+    "client_phone": "+91 99999 88888",
+    "date": "2026-06-01",
+    "slot": "09:30 AM",
+    "details": "My case is regarding a boundary dispute with my neighbor.",
+    "timestamp": "2026-05-29T10:05:00.057058"
+  },
+  {
+    "code": "ND-DA61DC",
+    "lawyer_id": 1,
+    "lawyer_name": "Adv. K. R. Meenakshi Sundaram",
+    "specialization": "Criminal Law (குற்றவியல் சட்டம்)",
+    "client_name": "ajay godric",
+    "client_email": "ajaygodric@outlook.com",
+    "client_phone": "9566722004",
+    "date": "2026-06-01",
+    "slot": "04:30 PM",
+    "details": "",
+    "timestamp": "2026-05-29T10:13:04.983822"
+  },
+  {
+    "code": "ND-B662F4",
+    "lawyer_id": 1,
+    "lawyer_name": "Adv. N. L. Rajah, Senior Advocate",
+    "specialization": "Civil Disputes & Appeals (சிவில் வழக்குகள்)",
+    "client_name": "Test Client",
+    "client_email": "testclient@example.com",
+    "client_phone": "+91 99999 88888",
+    "date": "2026-06-01",
+    "slot": "09:30 AM",
+    "details": "My case is regarding a boundary dispute with my neighbor.",
+    "timestamp": "2026-05-29T10:18:39.115046"
+  },
+  {
+    "code": "ND-D857E3",
+    "lawyer_id": 4,
+    "lawyer_name": "Adv. Arvind P. Datar, Senior Advocate",
+    "specialization": "Corporate & Contract Law (நிறுவன சட்டம்)",
+    "client_name": "ajay godric",
+    "client_email": "ajaygodric@outlook.com",
+    "client_phone": "9566722004",
+    "date": "2026-06-01",
+    "slot": "02:30 PM",
+    "details": "",
+    "timestamp": "2026-05-29T10:22:03.725791"
+  },
+  {
+    "code": "ND-E395E8",
+    "lawyer_id": 1,
+    "lawyer_name": "Adv. N. L. Rajah, Senior Advocate",
+    "specialization": "Civil Disputes & Appeals (சிவில் வழக்குகள்)",
+    "client_name": "Test Client",
+    "client_email": "testclient@example.com",
+    "client_phone": "+91 99999 88888",
+    "date": "2026-06-01",
+    "slot": "09:30 AM",
+    "details": "My case is regarding a boundary dispute with my neighbor.",
+    "timestamp": "2026-05-29T10:26:07.631765"
+  }
+]
