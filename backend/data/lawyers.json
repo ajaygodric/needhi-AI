@@ -94,5 +94,21 @@
     "email": "harish.salve@example.com",
     "slots": ["09:00 AM", "11:30 AM", "02:00 PM", "04:30 PM"],
     "bio": "Distinguished Senior Advocate and King's Counsel (UK). Specializes in high-value commercial property litigations, corporate disputes, and international arbitration."
+  },
+  {
+    "id": 7,
+    "name": "Chethana U",
+    "specialization": "Real Estate & Corporate Law (சொத்து மற்றும் நிறுவன சட்டம்)",
+    "experience": 3,
+    "rating": 4.8,
+    "reviews": 24,
+    "fee": 1000,
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "languages": ["English", "Kannada"],
+    "phone": "+91 63614 30366",
+    "email": "chethana.u1915@gmail.com",
+    "slots": ["10:00 AM", "11:30 AM", "02:30 PM", "04:00 PM"],
+    "bio": "Paralegal specializing in commercial real estate operations, document management, and regulatory compliance. Experienced in managing legal documentation for large-scale projects, including over 840 acres of land assets, and proficient in drafting commercial agreements, title verifications, and MIS reporting."
   }
 ]

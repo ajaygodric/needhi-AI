@@ -567,7 +567,7 @@ Thank you for choosing Needhi AI.
             from_email = os.environ.get("EMAIL_FROM", "onboarding@resend.dev")
             data = {
                 "from": f"Needhi AI <{from_email}>",
-                "to": [req.client_email],
+                "to": [req.client_email, lawyer["email"]],
                 "subject": subject,
                 "text": body
             }
@@ -590,7 +590,10 @@ Thank you for choosing Needhi AI.
             from_email = os.environ.get("EMAIL_FROM", "noreply@needhi.ai")
             data = {
                 "sender": {"name": "Needhi AI", "email": from_email},
-                "to": [{"email": req.client_email, "name": req.client_name}],
+                "to": [
+                    {"email": req.client_email, "name": req.client_name},
+                    {"email": lawyer["email"], "name": lawyer["name"]}
+                ],
                 "subject": subject,
                 "textContent": body
             }
@@ -608,10 +611,10 @@ Thank you for choosing Needhi AI.
             from email.mime.text import MIMEText
             from email.mime.multipart import MIMEMultipart
             
-            # Send to Client
+            # Send to Client and CC Lawyer
             msg = MIMEMultipart()
             msg["From"] = smtp_user
-            msg["To"] = req.client_email
+            msg["To"] = f"{req.client_email}, {lawyer['email']}"
             msg["Subject"] = subject
             msg.attach(MIMEText(body, "plain"))
             
@@ -619,17 +622,17 @@ Thank you for choosing Needhi AI.
             if port == 465:
                 server = smtplib.SMTP_SSL(smtp_host, port)
                 server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_user, req.client_email, msg.as_string())
+                server.sendmail(smtp_user, [req.client_email, lawyer["email"]], msg.as_string())
                 server.close()
             else:
                 server = smtplib.SMTP(smtp_host, port)
                 server.starttls()
                 server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_user, req.client_email, msg.as_string())
+                server.sendmail(smtp_user, [req.client_email, lawyer["email"]], msg.as_string())
                 server.close()
                 
             email_sent = True
-            email_status = "Emailed to client successfully"
+            email_status = "Emailed to client and lawyer successfully"
         except Exception as e:
             email_status = f"Failed to send email via SMTP: {e}"
     else:
