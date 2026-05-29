@@ -301,12 +301,15 @@ async def analyze_document(
         
         # Analyze PDF text
         if file_type == "application/pdf":
-            reader = pypdf.PdfReader(io.BytesIO(file_bytes))
-            doc_text = "\n".join(page.extract_text() or "" for page in reader.pages)
-            if not doc_text.strip():
-                raise HTTPException(status_code=400, detail="Could not extract text from this PDF. Try an image PDF.")
+            doc_text = ""
+            try:
+                reader = pypdf.PdfReader(io.BytesIO(file_bytes))
+                doc_text = "\n".join(page.extract_text() or "" for page in reader.pages)
+            except Exception:
+                doc_text = ""
                 
-            prompt = f"""You are Needhi AI, an Indian legal assistant.
+            if len(doc_text.strip()) > 100:
+                prompt = f"""You are Needhi AI, an Indian legal assistant.
 Analyze this legal document and provide:
 1. Document type and summary
 2. Key legal clauses and their implications under Indian law
@@ -316,8 +319,23 @@ Analyze this legal document and provide:
 
 Document text:
 {doc_text[:12000]}"""
-            response, _ = generate_gemini_content(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=4096))
-            return {"analysis": response.text}
+                response, _ = generate_gemini_content(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=4096))
+                return {"analysis": response.text}
+            else:
+                # Scanned PDF or text extraction failed: Fallback to native Gemini PDF analysis (with inline PDF data)
+                prompt = f"""You are Needhi AI, an Indian legal assistant.
+Analyze this scanned legal PDF document and provide:
+1. Document type and summary
+2. Key legal clauses and their implications under Indian law
+3. Any rights or obligations of the parties
+4. Red flags or concerning clauses
+5. Recommended action{extra_q}"""
+                pdf_part = {
+                    "mime_type": "application/pdf",
+                    "data": file_bytes
+                }
+                response, _ = generate_gemini_content([pdf_part, prompt], generation_config=genai.types.GenerationConfig(max_output_tokens=4096))
+                return {"analysis": response.text}
             
         # Analyze Image
         elif file_type in ["image/png", "image/jpeg", "image/jpg"]:
