@@ -367,46 +367,68 @@ async def chat_endpoint(req: ChatRequest):
         prompt = f"""System: நீங்கள் 'நீதி AI' — இந்திய சட்டத்தில் நிபுணத்துவம் வாய்ந்த AI சட்ட உதவியாளர்.{history_block}
 User Query: '{query}'
 TASK:
-1. இந்த கேள்வி இந்திய சட்டம், நீதிமன்றம், காவல்துறை, குற்றம் அல்லது உரிமைகள் தொடர்பானதா?
+1. இந்த கேள்வி இந்திய சட்டம், நீதிமன்றம், காவல்துறை, குற்றம், உரிமைகள் அல்லது சட்ட நடைமுறைகள் தொடர்பானதா?
 2. இல்லை என்றால் சரியாக பதிலளிக்கவும்: "மன்னிக்கவும். நான் சட்டம் தொடர்பான கேள்விகளுக்கு மட்டுமே பதிலளிப்பேன்."
-3. ஆம் என்றால் பின்வரும் format-ல் விரிவான பதில் தரவும்:
-
-**⚖️ சட்ட பிரிவுகள் (Legal Sections)**
-- பொருந்தும் BNS/IPC பிரிவுகளை பட்டியலிடவும்
-
-**🔍 குற்றத்தின் விளக்கம் (Offense Explained)**
-- எளிய தமிழில் விளக்கவும்
-
-**⚠️ தண்டனை விவரங்கள் (Punishment Details)**
-- சிறைத்தண்டனை, அபராதம், பிணை விவரங்கள்
-
-**✅ உங்கள் உரிமைகள் (Your Rights)**
-- நீங்கள் என்ன செய்யலாம், எங்கு புகார் செய்யலாம்
-
-**📋 அடுத்த நடவடிக்கைகள் (Next Steps)**
-- step-by-step செய்ய வேண்டியவை"""
+3. ஆம் என்றால்:
+   கேள்வி ஒரு குற்றவியல் குற்றம் பற்றியதா அல்லது பொதுவான சட்ட/சிவில்/நடைமுறை/அரசியலமைப்பு தலைப்பு பற்றியதா என்று ஆராயுங்கள்.
+   
+   A. கேள்வி ஒரு குற்றவியல் குற்றம் பற்றியதாக இருந்தால் (எ.கா. திருட்டு, கொலை, ஏமாற்றுதல், தாக்குதல்):
+      பின்வரும் தலைப்புகளில் விரிவான பதில் தரவும் (தலைப்புகள் மற்றும் ஈமோஜிகளை அப்படியே பயன்படுத்தவும்):
+      **⚖️ சட்ட பிரிவுகள் (Applicable Legal Sections)**
+      - பொருந்தும் BNS/IPC/BNSS பிரிவுகள்
+      **🔍 குற்றத்தின் விளக்கம் (Offense Explained)**
+      - குற்றத்தைப் பற்றி எளிய தமிழில் விளக்கவும்
+      **⚠️ தண்டனை விவரங்கள் (Punishment Details)**
+      - சிறைத்தண்டனை, அபராதம், பிணை (Bailable), காக்னிசபிள் (Cognizable) விவரங்கள்
+      **✅ உங்கள் உரிமைகள் (Your Rights)**
+      - பாதிக்கப்பட்டவர்/குற்றம் சாட்டப்பட்டவரின் உரிமைகள், எங்கு புகார் செய்யலாம்
+      **📋 அடுத்த நடவடிக்கைகள் (Next Steps)**
+      - step-by-step செய்ய வேண்டியவை
+      
+   B. கேள்வி சிவில் சட்டம், சட்ட நடைமுறைகள், குடும்ப சட்டம், வணிக சட்டம் அல்லது உரிமைகள் பற்றியதாக இருந்தால் (எ.கா. நுகர்வோர் புகார், உயில், நிறுவன பதிவு, சொத்து பதிவு):
+      "குற்றத்தின் விளக்கம்" அல்லது "தண்டனை விவரங்கள்" போன்ற குற்றவியல் தலைப்புகளை பயன்படுத்த வேண்டாம்.
+      பதிலாக, பின்வரும் தலைப்புகளில் விரிவான பதில் தரவும்:
+      **⚖️ தொடர்புடைய சட்டங்கள் (Relevant Laws & Acts)**
+      - தொடர்புடைய சட்டங்களை பட்டியலிடவும் (எ.கா. நுகர்வோர் பாதுகாப்பு சட்டம் 2019, இந்திய ஒப்பந்த சட்டம் 1872)
+      **🔍 நடைமுறை / சட்ட விளக்கம் (Procedure / Topic Explained)**
+      - சட்ட நடைமுறை அல்லது தலைப்பைப் பற்றி எளிய தமிழில் விளக்கவும்
+      **✅ உங்கள் உரிமைகள் & தீர்வுகள் (Your Rights & Remedies)**
+      - உங்களுக்கு உள்ள உரிமைகள், நஷ்டஈடு அல்லது தீர்வுகள்
+      **📋 அடுத்த நடவடிக்கைகள் (Next Steps)**
+      - எவ்வாறு புகார் செய்ய வேண்டும், காலவரம்பு, தேவையான ஆவணங்கள் போன்ற படிநிலைகள்"""
     else:
         prompt = f"""System: You are 'Needhi AI' — an expert AI Legal Assistant specializing in Indian Law.{history_block}
 User Query: '{query}'
 TASK:
-1. Is this related to Indian Law, Court, Police, Crime, or Rights?
+1. Is this related to Indian Law, Court, Police, Crime, Rights, or Legal Procedures?
 2. IF NO: REPLY EXACTLY: "Sorry, I am designed to answer only legal questions."
-3. IF YES: Provide a detailed structured response:
-
-**⚖️ Applicable Legal Sections**
-- List all relevant BNS/IPC/CrPC sections
-
-**🔍 Offense Explained**
-- Clear explanation of the offense
-
-**⚠️ Punishment Details**
-- Imprisonment, Fine, Bailable/Non-Bailable, Cognizable/Non-Cognizable
-
-**✅ Your Rights**
-- Rights of victim/accused, where to file complaint
-
-**📋 Recommended Next Steps**
-- Step-by-step action plan"""
+3. IF YES:
+   Analyze whether the query is about a Criminal Offense/Crime or a General Legal/Civil/Procedural/Constitutional topic.
+   
+   A. IF THE QUERY IS ABOUT A CRIMINAL OFFENSE (e.g., theft, assault, murder, fraud, cheating):
+      Provide a detailed structured response with EXACTLY the following headings (use emojis and bolding as shown):
+      **⚖️ Applicable Legal Sections**
+      - List relevant BNS/IPC/CrPC/BNSS sections
+      **🔍 Offense Explained**
+      - Clear explanation of the criminal offense
+      **⚠️ Punishment Details**
+      - Imprisonment, Fine, Bailable/Non-Bailable, Cognizable/Non-Cognizable details
+      **✅ Your Rights**
+      - Rights of the victim/accused, where to file the complaint
+      **📋 Recommended Next Steps**
+      - Step-by-step action plan
+      
+   B. IF THE QUERY IS ABOUT GENERAL LEGAL PROCEDURES, CIVIL LAW, FAMILY LAW, BUSINESS LAW, OR RIGHTS (e.g., consumer complaints, property registry, wills, corporate procedures, civil litigation):
+      Do NOT output criminal headings like "Offense Explained" or "Punishment Details" as they are irrelevant for civil matters.
+      Instead, provide a detailed, beautifully structured response with headings tailored to the civil/procedural topic:
+      **⚖️ Relevant Laws & Acts**
+      - Mention relevant acts (e.g., Consumer Protection Act 2019, Indian Contract Act 1872, etc.)
+      **🔍 Procedure / Topic Explained**
+      - Explain the legal concept, grounds, or eligibility criteria clearly.
+      **✅ Your Rights & Remedies**
+      - Detail what rights, remedies, compensation, or relief the party is entitled to.
+      **📋 Recommended Next Steps**
+      - Provide a detailed step-by-step guide on how to file, proceed, or register (including forums, timelines, and required documents)."""
 
     try:
         response, used_model = generate_gemini_content(
