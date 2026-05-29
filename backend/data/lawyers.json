@@ -110,5 +110,21 @@
     "email": "chethana.u1915@gmail.com",
     "slots": ["10:00 AM", "11:30 AM", "02:30 PM", "04:00 PM"],
     "bio": "Paralegal specializing in commercial real estate operations, document management, and regulatory compliance. Experienced in managing legal documentation for large-scale projects, including over 840 acres of land assets, and proficient in drafting commercial agreements, title verifications, and MIS reporting."
+  },
+  {
+    "id": 8,
+    "name": "Ajay",
+    "specialization": "Real Estate & Corporate Law (சொத்து மற்றும் நிறுவன சட்டம்)",
+    "experience": 3,
+    "rating": 4.8,
+    "reviews": 15,
+    "fee": 1000,
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "languages": ["English", "Tamil", "Kannada"],
+    "phone": "+91 94871 29084",
+    "email": "ajayajay9629@gmail.com",
+    "slots": ["10:00 AM", "11:30 AM", "02:30 PM", "04:00 PM"],
+    "bio": "Paralegal specializing in commercial real estate operations, document management, and regulatory compliance. Experienced in managing legal documentation for large-scale projects, including over 840 acres of land assets, and proficient in drafting commercial agreements, title verifications, and MIS reporting."
   }
 ]
