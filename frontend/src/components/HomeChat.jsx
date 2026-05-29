@@ -184,8 +184,22 @@ const HomeChat = ({ language }) => {
     const lines = escaped.split("\n");
     const parsedLines = lines.map(line => {
       const trimmed = line.trim();
-      if (trimmed.startsWith("* ") || trimmed.startsWith("- ")) {
-        return `<span style="color: var(--accent-gold); margin-right: 6px;">•</span> ${trimmed.substring(2)}`;
+      
+      // Parse Markdown Headings
+      if (trimmed.startsWith("### ")) {
+        return `<h4 style="font-family: var(--font-serif); color: var(--accent-gold-light); margin: 12px 0 6px 0; font-size: 1.05rem; font-weight: 600;">${trimmed.substring(4)}</h4>`;
+      }
+      if (trimmed.startsWith("## ")) {
+        return `<h3 style="font-family: var(--font-serif); color: var(--accent-gold-light); margin: 16px 0 8px 0; font-size: 1.15rem; font-weight: 600;">${trimmed.substring(3)}</h3>`;
+      }
+      if (trimmed.startsWith("# ")) {
+        return `<h2 style="font-family: var(--font-serif); color: var(--accent-gold-light); margin: 18px 0 10px 0; font-size: 1.3rem; font-weight: 700;">${trimmed.substring(2)}</h2>`;
+      }
+      
+      // Parse Bullet points
+      if (trimmed.startsWith("* ") || trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
+        const bulletText = trimmed.startsWith("• ") ? trimmed.substring(2) : (trimmed.startsWith("* ") || trimmed.startsWith("- ")) ? trimmed.substring(2) : trimmed;
+        return `<span style="color: var(--accent-gold); margin-right: 6px;">•</span> ${bulletText}`;
       }
       return line;
     });
