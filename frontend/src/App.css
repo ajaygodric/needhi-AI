@@ -703,20 +703,22 @@ select.input-control {
   align-items: center;
   justify-content: center;
   text-align: center;
-  height: 100%;
+  flex: 1;
   color: var(--text-secondary);
   padding: 40px;
+  overflow-y: auto;
 }
 .chat-empty-icon {
   font-size: 3rem;
   color: var(--accent-gold);
-  margin-bottom: 16px;
+  margin-bottom: 6px;
   opacity: 0.8;
 }
 .chat-empty h3 {
   font-family: var(--font-serif);
   font-size: 1.5rem;
   color: var(--text-primary);
+  margin-top: 0;
   margin-bottom: 8px;
 }
 .chat-empty p {
