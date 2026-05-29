@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { bnsLookup, chatWithNeedhi } from "../utils/api";
+import { bnsLookup, compareBnsAi } from "../utils/api";
 import { FaSearch, FaExchangeAlt, FaGavel, FaQuestionCircle, FaPaperPlane, FaLightbulb, FaBalanceScale, FaUserShield } from "react-icons/fa";
 
 const BnsLookup = ({ language }) => {
@@ -8,9 +8,10 @@ const BnsLookup = ({ language }) => {
   const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // AI mini helper state
+  // AI comparison helper states
   const [aiQuery, setAiQuery] = useState("");
-  const [aiAnswer, setAiAnswer] = useState("");
+  const [aiResults, setAiResults] = useState([]);
+  const [hasAiSearched, setHasAiSearched] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
   const categories = [
@@ -50,27 +51,18 @@ const BnsLookup = ({ language }) => {
   const handleAiLookup = async () => {
     if (!aiQuery.trim()) return;
     setIsAiLoading(true);
-    setAiAnswer("");
-
-    // Create a special prompt tailored to BNS vs IPC
-    const queryPrompt = `Provide a comparison of IPC vs BNS laws for: '${aiQuery}'. Explain clearly how the section numbers, definitions, and punishments have changed under the new Bharatiya Nyaya Sanhita (BNS). Keep it brief, accurate, and list relevant section numbers.`;
-
-    chatWithNeedhi(
-      queryPrompt,
-      language,
-      [], // no history for quick lookup
-      (chunk, full) => {
-        setAiAnswer(full);
-      },
-      (fullText) => {
-        setAiAnswer(fullText);
-        setIsAiLoading(false);
-      },
-      (err) => {
-        setAiAnswer(`❌ Error: ${err.message}`);
-        setIsAiLoading(false);
-      }
-    );
+    setAiResults([]);
+    setHasAiSearched(true);
+    
+    try {
+      const data = await compareBnsAi(aiQuery);
+      setAiResults(data);
+    } catch (err) {
+      console.error(err);
+      setAiResults([]);
+    } finally {
+      setIsAiLoading(false);
+    }
   };
 
   return (
@@ -216,9 +208,82 @@ const BnsLookup = ({ language }) => {
           </button>
         </div>
 
-        {aiAnswer && (
-          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-gold)", borderRadius: "8px", padding: "16px", fontSize: "0.93rem", whiteSpace: "pre-line" }}>
-            {aiAnswer}
+        {isAiLoading && (
+          <div className="grid-2" style={{ marginTop: "20px" }}>
+            {[1, 2].map((n) => (
+              <div key={n} className="card loading-pulse" style={{ height: "200px", background: "rgba(255,255,255,0.01)" }}></div>
+            ))}
+          </div>
+        )}
+
+        {!isAiLoading && aiResults.length > 0 && (
+          <div style={{ marginTop: "20px" }}>
+            <h4 style={{ color: "var(--accent-gold-light)", marginBottom: "15px", fontFamily: "var(--font-serif)" }}>
+              {language === "Tamil" ? "AI தேடல் முடிவுகள்" : "AI Search Comparison Results"}
+            </h4>
+            <div className="grid-2">
+              {aiResults.map((item, idx) => (
+                <div key={idx} className="card bns-card" style={{ background: "rgba(255,255,255,0.01)", border: "1px solid rgba(201, 168, 76, 0.15)" }}>
+                  <div className="bns-grid">
+                    <div>
+                      <span className="bns-sec-label">IPC Code</span>
+                      <span className="bns-sec-num">{item.ipc}</span>
+                    </div>
+                    <div className="bns-compare-arrow">
+                      <FaExchangeAlt />
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <span className="bns-sec-label">BNS Code</span>
+                      <span className="bns-sec-num" style={{ color: "var(--accent-gold-light)" }}>{item.bns}</span>
+                    </div>
+                  </div>
+
+                  <h4 style={{ fontFamily: "var(--font-serif)", fontSize: "1.15rem", marginBottom: "15px", color: "var(--text-primary)" }}>
+                    {item.title}
+                  </h4>
+
+                  <div className="bns-card-details">
+                    <div className="bns-detail-group">
+                      <h5>{language === "Tamil" ? "விளக்கம்" : "Description"}</h5>
+                      <p>{language === "Tamil" ? item.tamil_description || item.description : item.description}</p>
+                    </div>
+                    <div className="bns-detail-group">
+                      <h5>{language === "Tamil" ? "தண்டனை" : "Punishment"}</h5>
+                      <p style={{ color: "var(--accent-gold)" }}>
+                        {language === "Tamil" ? item.tamil_punishment || item.punishment : item.punishment}
+                      </p>
+                    </div>
+                    {(item.changes || item.tamil_changes) && (
+                      <div className="bns-changes-alert">
+                        <strong style={{ color: "var(--accent-gold-light)", display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+                          <FaLightbulb /> {language === "Tamil" ? "முக்கிய மாற்றங்கள்" : "Key Transition Details"}
+                        </strong>
+                        {language === "Tamil" ? item.tamil_changes || item.changes : item.changes}
+                      </div>
+                    )}
+                    
+                    <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+                      {item.bail && item.bail !== "N/A" && (
+                        <span className={`badge ${item.bail.includes("Non") ? "badge-red" : "badge-yellow"}`} style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                          <FaBalanceScale /> {item.bail}
+                        </span>
+                      )}
+                      {item.cognizable && item.cognizable !== "N/A" && (
+                        <span className="badge badge-blue" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                          <FaUserShield /> {item.cognizable}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!isAiLoading && hasAiSearched && aiResults.length === 0 && (
+          <div style={{ color: "var(--text-secondary)", textAlign: "center", padding: "15px", marginTop: "15px" }}>
+            {language === "Tamil" ? "AI மூலம் முடிவுகள் எதுவும் கண்டறியப்படவில்லை." : "No comparison details found by AI for this section."}
           </div>
         )}
       </div>

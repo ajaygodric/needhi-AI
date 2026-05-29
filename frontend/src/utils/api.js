@@ -89,6 +89,45 @@ export const bnsLookup = async (term = "", category = "") => {
 };
 
 /**
+ * Performs BNS vs IPC comparison using AI.
+ */
+export const compareBnsAi = async (query) => {
+  const response = await fetch(getApiUrl("/api/bns-compare-ai"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed BNS AI comparison");
+  }
+
+  return response.json();
+};
+
+/**
+ * Subscribes to email alerts for a case.
+ */
+export const subscribeToCase = async (cnr, email, clientName, language = "English") => {
+  const response = await fetch(getApiUrl("/api/cases/subscribe"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ cnr, email, client_name: clientName, language }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to subscribe to case updates");
+  }
+
+  return response.json();
+};
+
+/**
  * Searches case registry.
  */
 export const searchCases = async (search = "", searchType = "CNR Number") => {

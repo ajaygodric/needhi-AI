@@ -163,6 +163,115 @@ def clean_pdf_text(text, has_custom_font):
     else:
         return text.encode('latin-1', 'replace').decode('latin-1')
 
+def send_email_notification(recipients: List[dict], subject: str, body: str) -> tuple:
+    """
+    Sends email to a list of recipients (each is a dict with 'email' and 'name').
+    Returns a tuple (success: bool, status_message: str)
+    """
+    smtp_host = os.environ.get("SMTP_HOST", "")
+    smtp_port = os.environ.get("SMTP_PORT", "")
+    smtp_user = os.environ.get("SMTP_USER", "")
+    smtp_password = os.environ.get("SMTP_PASSWORD", "")
+    resend_key = os.environ.get("RESEND_API_KEY", "")
+    brevo_key = os.environ.get("BREVO_API_KEY", "")
+    email_from = os.environ.get("EMAIL_FROM", "")
+    
+    # Check secrets.toml
+    secrets_path = os.path.join(ROOT_DIR, ".streamlit", "secrets.toml")
+    if os.path.exists(secrets_path):
+        try:
+            with open(secrets_path, "r") as f:
+                for line in f.read().splitlines():
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip('"').strip("'")
+                        if k == "SMTP_HOST" and v: smtp_host = v
+                        elif k == "SMTP_PORT" and v: smtp_port = v
+                        elif k == "SMTP_USER" and v: smtp_user = v
+                        elif k == "SMTP_PASSWORD" and v: smtp_password = v
+                        elif k == "RESEND_API_KEY" and v: resend_key = v
+                        elif k == "BREVO_API_KEY" and v: brevo_key = v
+                        elif k == "EMAIL_FROM" and v: email_from = v
+        except Exception:
+            pass
+
+    to_emails = [r["email"] for r in recipients]
+    
+    if resend_key:
+        try:
+            import urllib.request
+            url = "https://api.resend.com/emails"
+            headers = {
+                "Authorization": f"Bearer {resend_key}",
+                "Content-Type": "application/json"
+            }
+            from_addr = email_from if email_from else "onboarding@resend.dev"
+            data = {
+                "from": f"Needhi AI <{from_addr}>",
+                "to": to_emails,
+                "subject": subject,
+                "text": body
+            }
+            api_req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers, method="POST")
+            with urllib.request.urlopen(api_req) as response:
+                resp_data = json.loads(response.read().decode())
+                return True, f"Sent successfully via Resend API (ID: {resp_data.get('id')})"
+        except Exception as e:
+            return False, f"Failed to send via Resend API: {e}"
+            
+    elif brevo_key:
+        try:
+            import urllib.request
+            url = "https://api.brevo.com/v3/smtp/email"
+            headers = {
+                "api-key": brevo_key,
+                "Content-Type": "application/json"
+            }
+            from_addr = email_from if email_from else (smtp_user if smtp_user else "noreply@needhi.ai")
+            data = {
+                "sender": {"name": "Needhi AI", "email": from_addr},
+                "to": [{"email": r["email"], "name": r["name"]} for r in recipients],
+                "subject": subject,
+                "textContent": body
+            }
+            api_req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers, method="POST")
+            with urllib.request.urlopen(api_req) as response:
+                resp_data = json.loads(response.read().decode())
+                return True, f"Sent successfully via Brevo API (MessageId: {resp_data.get('messageId')})"
+        except Exception as e:
+            return False, f"Failed to send via Brevo API: {e}"
+            
+    elif smtp_host and smtp_port and smtp_user and smtp_password:
+        try:
+            import smtplib
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+            
+            msg = MIMEMultipart()
+            msg["From"] = smtp_user
+            msg["To"] = ", ".join(to_emails)
+            msg["Subject"] = subject
+            msg.attach(MIMEText(body, "plain"))
+            
+            port = int(smtp_port)
+            if port == 465:
+                server = smtplib.SMTP_SSL(smtp_host, port)
+                server.login(smtp_user, smtp_password)
+                server.sendmail(smtp_user, to_emails, msg.as_string())
+                server.close()
+            else:
+                server = smtplib.SMTP(smtp_host, port)
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.sendmail(smtp_user, to_emails, msg.as_string())
+                server.close()
+            return True, "Sent successfully via SMTP"
+        except Exception as e:
+            return False, f"Failed to send via SMTP: {e}"
+            
+    return False, "Simulated email dispatch (No API keys or SMTP configured)"
+
 # --- Models ---
 class ChatMessage(BaseModel):
     role: str
@@ -195,6 +304,15 @@ class BookLawyerRequest(BaseModel):
     date: str
     slot: str
     details: str
+
+class BnsCompareRequest(BaseModel):
+    query: str
+
+class CaseSubscribeRequest(BaseModel):
+    cnr: str
+    email: str
+    client_name: str
+    language: str = "English"
 
 # --- Endpoints ---
 
@@ -409,6 +527,186 @@ def bns_lookup(query: dict):
             
     return results
 
+@app.post("/api/bns-compare-ai")
+def bns_compare_ai(req: BnsCompareRequest):
+    query_str = req.query.strip()
+    if not query_str:
+        return []
+
+    prompt = f"""
+    You are an expert Indian legal archivist comparing the old Indian Penal Code (IPC) and the new Bharatiya Nyaya Sanhita (BNS) 2023.
+    The user wants to compare and see transition details for: '{query_str}'.
+    Analyze the query, find the relevant sections, and provide one or more comparative card entries matching the schema below.
+    
+    Each object in the returned JSON list must represent a compared section:
+    - ipc: the old IPC section number(s) (e.g. '144' or '302' or '378, 379')
+    - bns: the new BNS section number(s) (e.g. '111' or '103(1)' or '303') or 'Repealed'
+    - title: short title of the offense, combining English and Tamil (e.g. 'Murder (கொலை)' or 'Defamation (அவதூறு)')
+    - category: 'Body' or 'Property' or 'Women & Children' or 'Public Peace' or 'State Sovereignty' or 'General'
+    - description: simple description of the offense in English
+    - tamil_description: simple description of the offense in Tamil
+    - punishment: punishment details under BNS in English
+    - tamil_punishment: punishment details under BNS in Tamil
+    - changes: key transition changes or differences in English
+    - tamil_changes: key transition changes or differences in Tamil
+    - bail: 'Bailable' or 'Non-Bailable' or 'Bailable / Non-Bailable' or 'N/A'
+    - cognizable: 'Cognizable' or 'Non-Cognizable' or 'N/A'
+    
+    Ensure the Tamil translations for titles, descriptions, punishments, and changes are accurate, formal, and natural.
+    If the queried section is repealed or de-criminalized, set 'bns' to 'Repealed'.
+    Return only a valid JSON array of objects. Do not wrap in markdown or backticks.
+    """
+
+    try:
+        response, _ = generate_gemini_content(prompt, generation_config=genai.types.GenerationConfig(
+            response_mime_type="application/json",
+            max_output_tokens=2048
+        ))
+        
+        resp_text = response.text.strip()
+        if resp_text.startswith("```"):
+            lines = resp_text.splitlines()
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines[-1].strip() == "```":
+                lines = lines[:-1]
+            resp_text = "\n".join(lines).strip()
+            
+        cards = json.loads(resp_text)
+        if isinstance(cards, list) and len(cards) > 0:
+            return cards
+    except Exception as e:
+        print("BNS AI comparison failed, falling back to local search:", e)
+        
+    # Local fallback
+    ipc_bns_path = os.path.join(DATA_DIR, "ipc_bns.json")
+    if os.path.exists(ipc_bns_path):
+        try:
+            with open(ipc_bns_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            fallback_results = []
+            search_lower = query_str.lower()
+            for item in data:
+                in_ipc = search_lower in item["ipc"].lower()
+                in_bns = search_lower in item["bns"].lower()
+                in_title = search_lower in item["title"].lower()
+                in_desc = search_lower in item["description"].lower() or search_lower in item["tamil_description"].lower()
+                
+                if in_ipc or in_bns or in_title or in_desc:
+                    fallback_results.append(item)
+            return fallback_results
+        except Exception:
+            pass
+            
+    return []
+
+@app.post("/api/cases/subscribe")
+def subscribe_to_case(req: CaseSubscribeRequest):
+    cnr = req.cnr.strip()
+    email = req.email.strip().lower()
+    client_name = req.client_name.strip()
+    language = req.language
+    
+    if not cnr or not email or not client_name:
+        raise HTTPException(status_code=400, detail="Missing required subscription fields")
+        
+    # Check if case exists to get the details
+    cases_path = os.path.join(DATA_DIR, "cases.json")
+    case_details = None
+    if os.path.exists(cases_path):
+        try:
+            with open(cases_path, "r", encoding="utf-8") as f:
+                cases = json.load(f)
+            for c in cases:
+                if c["cnr"].lower() == cnr.lower():
+                    case_details = c
+                    break
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to read cases database: {e}")
+            
+    if not case_details:
+        raise HTTPException(status_code=404, detail="Case with this CNR number not found")
+        
+    # Save subscription
+    subscriptions_path = os.path.join(DATA_DIR, "subscriptions.json")
+    subscriptions = []
+    if os.path.exists(subscriptions_path):
+        try:
+            with open(subscriptions_path, "r", encoding="utf-8") as f:
+                subscriptions = json.load(f)
+        except Exception:
+            pass
+            
+    # Check if already subscribed
+    already_subscribed = False
+    for sub in subscriptions:
+        if sub.get("cnr", "").lower() == cnr.lower() and sub.get("email", "").lower() == email:
+            already_subscribed = True
+            break
+            
+    if not already_subscribed:
+        subscriptions.append({
+            "cnr": cnr,
+            "email": email,
+            "client_name": client_name,
+            "language": language,
+            "subscribed_at": datetime.now().isoformat()
+        })
+        try:
+            with open(subscriptions_path, "w", encoding="utf-8") as f:
+                json.dump(subscriptions, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save subscription: {e}")
+            
+    # Construct Email Content
+    case_title = case_details.get("title", cnr)
+    case_title_tamil = case_details.get("tamil_title", case_title)
+    
+    if language == "Tamil":
+        subject = f"நீதி AI: வழக்கு கண்காணிப்பு சந்தா உறுதிசெய்யப்பட்டது - {cnr}"
+        body = f"""அன்புள்ள {client_name},
+  
+நீங்கள் {cnr} ({case_title_tamil}) வழக்குகான மின்னஞ்சல் விழிப்பூட்டல்களுக்கு வெற்றிகரமாக குழுசேர்ந்துள்ளீர்கள்.
+  
+--- வழக்கு கண்காணிப்பு விவரங்கள் ---
+வழக்கு தலைப்பு: {case_title_tamil}
+நீதிமன்றம்: {case_details.get('tamil_court', case_details.get('court'))}
+தற்போதைய நிலை: {case_details.get('current_stage_tamil', case_details.get('current_stage'))}
+அடுத்த விசாரணை தேதி: {case_details.get('next_hearing')} (அறை: {case_details.get('courtroom')})
+  
+இந்த வழக்கில் புதிய தகவல்கள் அல்லது விசாரணை தேதிகள் புதுப்பிக்கப்படும்போது, {email} என்ற முகவரிக்கு மின்னஞ்சல் அனுப்பப்படும்.
+  
+நன்றி,
+நீதி AI சட்ட குழு.
+"""
+    else:
+        subject = f"Needhi AI: Case Tracker Subscription Confirmed - {cnr}"
+        body = f"""Dear {client_name},
+  
+You have successfully subscribed to email alerts for CNR: {cnr} ({case_title}).
+  
+--- CASE TRACKER SUBSCRIPTION INFO ---
+Case Title: {case_title}
+Court: {case_details.get('court')}
+Current Stage: {case_details.get('current_stage')}
+Next Hearing Date: {case_details.get('next_hearing')} (Courtroom: {case_details.get('courtroom')})
+  
+You will receive automated notifications at {email} when the court logs new hearing stages or updates.
+  
+Thank you,
+Needhi AI Legal Suite.
+"""
+
+    recipients = [{"email": email, "name": client_name}]
+    email_sent, email_status = send_email_notification(recipients, subject, body)
+    
+    return {
+        "status": "success",
+        "message": "Subscription registered successfully",
+        "email_sent": email_sent,
+        "email_status": email_status
+    }
+
 @app.get("/api/cases")
 def get_cases(search: str = "", search_type: str = "CNR Number"):
     cases_path = os.path.join(DATA_DIR, "cases.json")
@@ -489,7 +787,8 @@ def book_lawyer(req: BookLawyerRequest):
         raise HTTPException(status_code=404, detail="Lawyer not found")
         
     # Generate booking code
-    booking_code = "ND-" + str(os.urandom(3).hex().upper())
+    import os as _os
+    booking_code = "ND-" + str(_os.urandom(3).hex().upper())
     
     # Save booking to bookings.json
     bookings_path = os.path.join(DATA_DIR, "bookings.json")
@@ -523,36 +822,6 @@ def book_lawyer(req: BookLawyerRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save booking: {e}")
         
-    # Send email notification or simulate
-    smtp_host = os.environ.get("SMTP_HOST", "")
-    smtp_port = os.environ.get("SMTP_PORT", "")
-    smtp_user = os.environ.get("SMTP_USER", "")
-    smtp_password = os.environ.get("SMTP_PASSWORD", "")
-    resend_key = os.environ.get("RESEND_API_KEY", "")
-    brevo_key = os.environ.get("BREVO_API_KEY", "")
-    
-    # Check secrets.toml
-    secrets_path = os.path.join(ROOT_DIR, ".streamlit", "secrets.toml")
-    if os.path.exists(secrets_path):
-        try:
-            with open(secrets_path, "r") as f:
-                for line in f.read().splitlines():
-                    if "=" in line:
-                        k, v = line.split("=", 1)
-                        k = k.strip()
-                        v = v.strip().strip('"').strip("'")
-                        if k == "SMTP_HOST" and v: smtp_host = v
-                        elif k == "SMTP_PORT" and v: smtp_port = v
-                        elif k == "SMTP_USER" and v: smtp_user = v
-                        elif k == "SMTP_PASSWORD" and v: smtp_password = v
-                        elif k == "RESEND_API_KEY" and v: resend_key = v
-                        elif k == "BREVO_API_KEY" and v: brevo_key = v
-        except Exception:
-            pass
-            
-    email_status = "Simulated email dispatch"
-    email_sent = False
-    
     # Construct Email Content
     subject = f"Needhi AI: Legal Consultation Ticket - {booking_code}"
     body = f"""Dear {req.client_name},
@@ -564,7 +833,7 @@ Ticket Code: {booking_code}
 Lawyer: {lawyer['name']} ({lawyer['specialization']})
 Date: {req.date}
 Time Slot: {req.slot}
-Fee: \u20b9{lawyer['fee']} (Payable to the lawyer)
+Fee: ₹{lawyer['fee']} (Payable to the lawyer)
  
 Client Contact Details:
 Name: {req.client_name}
@@ -582,96 +851,12 @@ Case Summary provided:
 Thank you for choosing Needhi AI.
 """
     
-    if resend_key:
-        try:
-            import urllib.request
-            url = "https://api.resend.com/emails"
-            headers = {
-                "Authorization": f"Bearer {resend_key}",
-                "Content-Type": "application/json"
-            }
-            # Resend requires a verified domain unless using onboarding@resend.dev
-            from_email = os.environ.get("EMAIL_FROM", "onboarding@resend.dev")
-            data = {
-                "from": f"Needhi AI <{from_email}>",
-                "to": [req.client_email, lawyer["email"]],
-                "subject": subject,
-                "text": body
-            }
-            api_req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers, method="POST")
-            with urllib.request.urlopen(api_req) as response:
-                resp_data = json.loads(response.read().decode())
-                email_sent = True
-                email_status = f"Sent successfully via Resend API (ID: {resp_data.get('id')})"
-        except Exception as e:
-            email_status = f"Failed to send via Resend API: {e}"
-            
-    elif brevo_key:
-        try:
-            import urllib.request
-            url = "https://api.brevo.com/v3/smtp/email"
-            headers = {
-                "api-key": brevo_key,
-                "Content-Type": "application/json"
-            }
-            from_email = os.environ.get("EMAIL_FROM", "")
-            if not from_email:
-                from_email = smtp_user if smtp_user else "noreply@needhi.ai"
-            data = {
-                "sender": {"name": "Needhi AI", "email": from_email},
-                "to": [
-                    {"email": req.client_email, "name": req.client_name},
-                    {"email": lawyer["email"], "name": lawyer["name"]}
-                ],
-                "subject": subject,
-                "textContent": body
-            }
-            api_req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers, method="POST")
-            with urllib.request.urlopen(api_req) as response:
-                resp_data = json.loads(response.read().decode())
-                email_sent = True
-                email_status = f"Sent successfully via Brevo API (MessageId: {resp_data.get('messageId')})"
-        except Exception as e:
-            email_status = f"Failed to send via Brevo API: {e}"
-            
-    elif smtp_host and smtp_port and smtp_user and smtp_password:
-        try:
-            import smtplib
-            from email.mime.text import MIMEText
-            from email.mime.multipart import MIMEMultipart
-            
-            # Send to Client and CC Lawyer
-            msg = MIMEMultipart()
-            msg["From"] = smtp_user
-            msg["To"] = f"{req.client_email}, {lawyer['email']}"
-            msg["Subject"] = subject
-            msg.attach(MIMEText(body, "plain"))
-            
-            port = int(smtp_port)
-            if port == 465:
-                server = smtplib.SMTP_SSL(smtp_host, port)
-                server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_user, [req.client_email, lawyer["email"]], msg.as_string())
-                server.close()
-            else:
-                server = smtplib.SMTP(smtp_host, port)
-                server.starttls()
-                server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_user, [req.client_email, lawyer["email"]], msg.as_string())
-                server.close()
-                
-            email_sent = True
-            email_status = "Emailed to client and lawyer successfully"
-        except Exception as e:
-            email_status = f"Failed to send email via SMTP: {e}"
-    else:
-        # Print simulated dispatch details
-        print(f"\n=== NEEDHI AI SMTP SIMULATOR ===")
-        print(f"To: {req.client_email}")
-        print(f"From: {smtp_user or 'noreply@needhi.ai'}")
-        print(f"Subject: {subject}")
-        print(f"Body:\n{body}")
-        print(f"=================================\n")
+    # Send email notification
+    recipients = [
+        {"email": req.client_email, "name": req.client_name},
+        {"email": lawyer["email"], "name": lawyer["name"]}
+    ]
+    email_sent, email_status = send_email_notification(recipients, subject, body)
         
     return {
         "status": "success",

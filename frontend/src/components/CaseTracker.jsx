@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { searchCases } from "../utils/api";
-import { FaSearch, FaHistory, FaGavel, FaHourglassHalf, FaRegFolderOpen, FaMapMarkerAlt } from "react-icons/fa";
+import { searchCases, downloadPdf, subscribeToCase } from "../utils/api";
+import { FaSearch, FaHistory, FaGavel, FaHourglassHalf, FaRegFolderOpen, FaMapMarkerAlt, FaDownload, FaEnvelope } from "react-icons/fa";
 
 const CaseTracker = ({ language }) => {
   const [searchVal, setSearchVal] = useState("");
@@ -10,6 +10,82 @@ const CaseTracker = ({ language }) => {
   const [cases, setCases] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Email alerts subscription and PDF states
+  const [activeSubCnr, setActiveSubCnr] = useState(null);
+  const [subName, setSubName] = useState("");
+  const [subEmail, setSubEmail] = useState("");
+  const [subLoading, setSubLoading] = useState(false);
+  const [subscribedCnrs, setSubscribedCnrs] = useState({});
+
+  const handleDownloadCasePdf = (item) => {
+    const isTamil = language === "Tamil";
+    const title = isTamil ? `வழக்கு நிலை அறிக்கை - ${item.case_no}` : `Case Status Report - ${item.case_no}`;
+    
+    let content = "";
+    if (isTamil) {
+      content = `### வழக்கு விவரங்கள் (Case Details)
+**வழக்கு எண் (Case No):** ${item.case_no}
+**சி.என்.ஆர் எண் (CNR No):** ${item.cnr}
+**நீதிமன்றம் (Court):** ${item.tamil_court || item.court}
+**நீதிபதி (Judge):** ${item.judge}
+**வழக்கு தாக்கல் தேதி (Filing Date):** ${item.filing_date}
+**வழக்கின் நிலை (Current Stage):** ${item.tamil_stage || item.current_stage}
+
+**மனுதாரர் (Petitioner):** ${item.petitioner}
+**மனுதாரர் வழக்கறிஞர் (Petitioner Advocate):** ${item.petitioner_adv}
+**எதிர்மனுதாரர் (Respondent):** ${item.respondent}
+**எதிர்மனுதாரர் வழக்கறிஞர் (Respondent Advocate):** ${item.respondent_adv}
+
+### விசாரணை காலவரிசை (Hearing Timeline)
+`;
+      item.timeline.forEach((event) => {
+        const eventStatus = event.status === "completed" ? "முடிந்தது" : event.status === "current" ? "தற்போதைய" : "நிலுவையில் உள்ளது";
+        content += `\n**தேதி (Date):** ${event.date}\n**நடவடிக்கை (Action):** ${event.action}\n**விளக்கம் (Description):** ${event.description}\n**நிலை (Status):** ${eventStatus}\n-----------------------------------\n`;
+      });
+    } else {
+      content = `### Case Details
+**Case Number:** ${item.case_no}
+**CNR Number:** ${item.cnr}
+**Court:** ${item.court}
+**Judge Presiding:** ${item.judge}
+**Filing Date:** ${item.filing_date}
+**Current Stage:** ${item.current_stage}
+
+**Petitioner:** ${item.petitioner}
+**Petitioner Advocate:** ${item.petitioner_adv}
+**Respondent:** ${item.respondent}
+**Respondent Advocate:** ${item.respondent_adv}
+
+### Hearing Timeline & Case Progress
+`;
+      item.timeline.forEach((event) => {
+        content += `\n**Date:** ${event.date}\n**Action:** ${event.action}\n**Description:** ${event.description}\n**Status:** ${event.status.toUpperCase()}\n-----------------------------------\n`;
+      });
+    }
+
+    downloadPdf(title, content, `Case_Status_${item.cnr}.pdf`);
+  };
+
+  const handleSubscribe = async (cnr) => {
+    if (!subName.trim() || !subEmail.trim()) return;
+    setSubLoading(true);
+    try {
+      await subscribeToCase(cnr, subEmail, subName, language);
+      setSubscribedCnrs(prev => ({ ...prev, [cnr]: subEmail }));
+      setActiveSubCnr(null);
+      setSubName("");
+      setSubEmail("");
+      alert(language === "Tamil" 
+        ? "மின்னஞ்சல் விழிப்பூட்டல்களுக்கு வெற்றிகரமாக பதிவு செய்யப்பட்டுள்ளது! உறுதிப்படுத்தல் மின்னஞ்சல் அனுப்பப்பட்டது." 
+        : "Successfully subscribed to email alerts! A confirmation email has been sent.");
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Failed to subscribe to alerts");
+    } finally {
+      setSubLoading(false);
+    }
+  };
 
   const searchTypes = ["CNR Number", "Party Name", "FIR Number", "Advocate Name"];
   
@@ -180,11 +256,90 @@ const CaseTracker = ({ language }) => {
                   <FaMapMarkerAlt style={{ color: "var(--accent-gold-light)" }} /> <span>{language === "Tamil" ? item.tamil_court : item.court}</span>
                 </p>
               </div>
-              <div style={{ textAlign: "right" }}>
-                <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>CNR Number</span>
-                <span style={{ fontFamily: "monospace", fontSize: "1.1rem", fontWeight: "700", color: "var(--accent-gold)" }}>{item.cnr}</span>
+              <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "10px" }}>
+                <div>
+                  <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>CNR Number</span>
+                  <span style={{ fontFamily: "monospace", fontSize: "1.1rem", fontWeight: "700", color: "var(--accent-gold)" }}>{item.cnr}</span>
+                </div>
+                <div style={{ display: "flex", gap: "8px", marginTop: "5px" }}>
+                  <button 
+                    className="btn btn-small" 
+                    onClick={() => handleDownloadCasePdf(item)}
+                    title={language === "Tamil" ? "வழக்கு அறிக்கையை பதிவிறக்கவும்" : "Download Case PDF Report"}
+                    style={{ padding: "6px 12px", fontSize: "0.82rem", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                  >
+                    <FaDownload /> {language === "Tamil" ? "PDF" : "PDF Report"}
+                  </button>
+                  
+                  {subscribedCnrs[item.cnr] ? (
+                    <span style={{ color: "var(--success)", fontSize: "0.85rem", display: "inline-flex", alignItems: "center", gap: "4px", padding: "6px" }}>
+                      ✓ {language === "Tamil" ? "பதிவு செய்யப்பட்டது" : "Subscribed"}
+                    </span>
+                  ) : (
+                    <button 
+                      className="btn btn-small btn-secondary" 
+                      onClick={() => setActiveSubCnr(activeSubCnr === item.cnr ? null : item.cnr)}
+                      style={{ padding: "6px 12px", fontSize: "0.82rem", display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(255,255,255,0.04)" }}
+                    >
+                      <FaEnvelope /> {language === "Tamil" ? "விழிப்பூட்டல்" : "Subscribe"}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* Subscription Form Panel */}
+            {activeSubCnr === item.cnr && (
+              <div style={{ 
+                background: "rgba(201, 168, 76, 0.04)", 
+                border: "1px solid var(--border-gold)", 
+                borderRadius: "8px", 
+                padding: "15px", 
+                margin: "15px 0"
+              }}>
+                <h5 style={{ color: "var(--accent-gold-light)", marginBottom: "8px", fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <FaEnvelope /> {language === "Tamil" ? "வழக்கு விழிப்பூட்டல்களுக்கு பதிவு செய்யவும்" : "Subscribe to Case Email Alerts"}
+                </h5>
+                <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: "12px" }}>
+                  {language === "Tamil" 
+                    ? "விசாரணை தேதிகள் மற்றும் நிலை புதுப்பிக்கப்படும் போது உங்கள் மின்னஞ்சலுக்கு அறிவிப்புகளைப் பெறுங்கள்."
+                    : "Receive automated email updates whenever next hearing dates or stages are updated for this case."}
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                  <input
+                    type="text"
+                    className="input-control"
+                    placeholder={language === "Tamil" ? "உங்கள் பெயர்" : "Your Name"}
+                    value={subName}
+                    onChange={(e) => setSubName(e.target.value)}
+                    style={{ flex: 1, minWidth: "150px", fontSize: "0.85rem", padding: "8px 12px" }}
+                  />
+                  <input
+                    type="email"
+                    className="input-control"
+                    placeholder={language === "Tamil" ? "மின்னஞ்சல் முகவரி" : "Email Address"}
+                    value={subEmail}
+                    onChange={(e) => setSubEmail(e.target.value)}
+                    style={{ flex: 1, minWidth: "150px", fontSize: "0.85rem", padding: "8px 12px" }}
+                  />
+                  <button 
+                    className="btn btn-primary" 
+                    onClick={() => handleSubscribe(item.cnr)}
+                    disabled={subLoading || !subName.trim() || !subEmail.trim()}
+                    style={{ padding: "8px 16px", fontSize: "0.85rem" }}
+                  >
+                    {subLoading ? (language === "Tamil" ? "பதிவு செய்யப்படுகிறது..." : "Subscribing...") : (language === "Tamil" ? "உறுதி செய்" : "Confirm")}
+                  </button>
+                  <button 
+                    className="btn" 
+                    onClick={() => { setActiveSubCnr(null); setSubName(""); setSubEmail(""); }}
+                    style={{ padding: "8px 16px", fontSize: "0.85rem", background: "rgba(255,255,255,0.05)" }}
+                  >
+                    {language === "Tamil" ? "ரத்து" : "Cancel"}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Pipeline Stage */}
             {renderPipeline(item.timeline)}
