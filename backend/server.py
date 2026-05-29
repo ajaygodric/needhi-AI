@@ -566,6 +566,11 @@ Date: {req.date}
 Time Slot: {req.slot}
 Fee: \u20b9{lawyer['fee']} (Payable to the lawyer)
  
+Client Contact Details:
+Name: {req.client_name}
+Phone: {req.client_phone}
+Email: {req.client_email}
+ 
 Advocate Contact Details:
 Phone: {lawyer['phone']}
 Email: {lawyer['email']}
