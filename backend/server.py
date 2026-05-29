@@ -943,18 +943,146 @@ def generate_fir(req: FIRRequest):
 
 @app.post("/api/generate-template")
 def generate_template(req: TemplateRequest):
+    special_guidelines = ""
+    tt = req.template_type
+    
+    if tt == "Rent Agreement":
+        special_guidelines = (
+            "- The document MUST follow the standard structure of a Rent Agreement/Lease Deed in India.\n"
+            "- Explicitly state at the top: 'THIS DEED OF RENT AGREEMENT is executed on this [Day] day of [Month], [Year] on a Non-Judicial Stamp Paper of Rs. 100/-' or 'Rs. 200/-'.\n"
+            "- Structure clearly into sections:\n"
+            "  1. PARTIES: Describe Landlord (First Party) and Tenant (Second Party), including full names, ages, parent's names, and addresses.\n"
+            "  2. DEMISED PREMISES: Full physical description of the leased property.\n"
+            "  3. DURATION AND LEASE TERM: State the period (e.g. 11 months) and the commencement date.\n"
+            "  4. RENT AND PAYMENTS: Clear monthly rent amount (in figures and words), due date, mode of payment, and utility/maintenance responsibilities.\n"
+            "  5. SECURITY DEPOSIT: Interest-free security deposit amount, terms of refund, and deductions.\n"
+            "  6. TENANT'S COVENANTS: Proper maintenance of premises, no illegal activities, no structural alterations, and permitting landlord visits for inspection.\n"
+            "  7. TERMINATION AND NOTICE PERIOD: Notice period required by either party (usually 1 or 2 months) to vacate the premises before expiry.\n"
+            "  8. RENEWAL TERMS: Conditions under which the agreement can be renewed, specifying standard escalation percentage (usually 5% to 10%).\n"
+            "  9. DISPUTE RESOLUTION (ARBITRATION): Explicitly state: 'Any dispute arising out of or in connection with this agreement shall be referred to arbitration in accordance with the provisions of the Arbitration and Conciliation Act, 1996. The seat and venue of arbitration shall be Chennai, Tamil Nadu, and proceedings shall be in English.'\n"
+            "  10. JURISDICTION: Govern under local laws of the State (e.g., Tamil Nadu Regulation of Rights and Responsibilities of Landlords and Tenants Act, 2017) and designate local civil courts.\n"
+            "- SIGNATURE BLOCKS: Include signature spaces for 'LANDLORD (First Party)', 'TENANT (Second Party)', 'WITNESS 1 (Name, Signature, Address)', and 'WITNESS 2 (Name, Signature, Address)'.\n"
+        )
+    elif tt == "Legal Notice":
+        special_guidelines = (
+            "- The document must represent a formal legal notice sent by an advocate or individual.\n"
+            "- Header must include: 'REGISTERED POST WITH ACKNOWLEDGEMENT DUE / SPEED POST' and the date.\n"
+            "- Addressed formally: 'To, [Receiver Name], residing at [Receiver Address]'.\n"
+            "- Subject Line: Formally phrase the subject to clearly state the cause of action, e.g., 'SUBJECT: Legal Notice under Section 138 of the Negotiable Instruments Act, 1881 / for breach of contract / recovery of dues'.\n"
+            "- INSTRUCTIONS / PREAMBLE: 'Under instructions from and on behalf of my client [Sender Name], residing at [Sender Address], I hereby serve you with the following Legal Notice:'\n"
+            "- CHRONOLOGICAL NARRATIVE: Outline the facts of the dispute or transaction chronologically.\n"
+            "- BREACH & DEFAULT DETAILS: Clearly state the breach of contract, non-payment, or offense committed by the receiver. Cite relevant acts where applicable (e.g., Indian Contract Act 1872, or Negotiable Instruments Act 1881).\n"
+            "- DEMAND FOR COMPLIANCE: Direct the receiver to pay the outstanding amount or perform the requested action within 15 days (standard Indian timeline) or 30 days of receiving this notice.\n"
+            "- LEGAL ACTION WARNING: State clearly that if the receiver fails to comply within the specified time, my client will initiate appropriate civil and/or criminal proceedings in the competent courts of jurisdiction at the receiver's sole cost, risk, and responsibility.\n"
+            "- SIGNATURE BLOCKS: 'Sincerely, [Sender/Advocate Name], Advocate / Sender'.\n"
+        )
+    elif tt == "Affidavit":
+        special_guidelines = (
+            "- The document must represent a formal Affidavit for declaration/affirmation.\n"
+            "- Header: 'BEFORE THE OATH COMMISSIONER / NOTARY PUBLIC AT [City/State]'\n"
+            "- Preamble/Deponent Details: 'I, [Name], [Son/Daughter/Wife] of [Parent/Husband Name], aged about [Age] years, residing at [Address], do hereby solemnly affirm and state on oath as under:'\n"
+            "- NUMBERED PARAGRAPHS: Number each declaration paragraph (1, 2, 3...) detailing the specific facts/statements being attested.\n"
+            "- VERIFICATION CLAUSE: The verification must be absolute and precise:\n"
+            "  'VERIFICATION: Verified at [Place] on this [Date] day of [Month], [Year], that the contents of paragraphs 1 to [N] of the above affidavit are true and correct to the best of my knowledge and belief, and nothing material has been concealed therefrom.'\n"
+            "- SIGNATURE & ATTESTATION:\n"
+            "  - Signature of the Deponent: 'DEPONENT: ________________________'\n"
+            "  - Attestation block for Oath Commissioner / Notary Public: 'Solemnly affirmed and signed before me on this ____ day of ________, 20__ at _______. Notary Public / Oath Commissioner.'\n"
+        )
+    elif tt == "Bail Application":
+        special_guidelines = (
+            "- The document must represent a formal bail petition filed in court.\n"
+            "- Court Header: 'IN THE COURT OF THE SESSIONS JUDGE / CHIEF METROPOLITAN MAGISTRATE AT [Location]'\n"
+            "- Case Details Block:\n"
+            "  'In the Matter of:\n"
+            "   State vs. [Accused Name]\n"
+            "   FIR No: [Case Number/FIR No]\n"
+            "   Under Section(s): [BNS/IPC Sections]\n"
+            "   Police Station: [Police Station]'\n"
+            "- Application Title: 'APPLICATION FOR BAIL UNDER SECTION 480/482 OF THE BHARATIYA NAGARIK SURAKSHA SANHITA, 2023 (BNSS) (formerly Section 437/439 of the Code of Criminal Procedure, 1973)'\n"
+            "- PETITIONER DETAILS: 'The humble petition of the Accused/Petitioner above named most respectfully showeth:'\n"
+            "- DETAILED GROUNDS FOR BAIL:\n"
+            "  1. Provide a list of legal grounds (e.g. innocence, false implication, lack of criminal history, ready to abide by bail conditions, ready to submit sureties, deep roots in society, no flight risk, no risk of tampering with prosecution witnesses/evidence).\n"
+            "  2. Structure each ground in a separate, numbered paragraph.\n"
+            "- PRAYER: Formal prayer requesting: 'Wherefore, it is most respectfully prayed that this Hon'ble Court may be pleased to release the Accused/Petitioner on bail on such terms and conditions as this Court may deem fit in the interest of justice.'\n"
+            "- SIGNATURE BLOCKS: 'Co-signed by Accused/Petitioner' and 'Through: [Advocate/Counsel Signature]'.\n"
+            "- VERIFICATION AFFIDAVIT: Include a short verification affidavit of the deponent/relative who is signing on behalf of the accused.\n"
+        )
+    elif tt == "Consumer Complaint":
+        special_guidelines = (
+            "- The document must follow the structure of a formal consumer complaint filed under the Consumer Protection Act, 2019.\n"
+            "- Court Header: 'BEFORE THE DISTRICT CONSUMER DISPUTES REDRESSAL COMMISSION AT [City]'\n"
+            "- Parties description:\n"
+            "  '[Complainant Name], residing at [Complainant Address] ... COMPLAINANT\n"
+            "   VERSUS\n"
+            "   [Opposite Party Name], located at [Opposite Party Address] ... OPPOSITE PARTY'\n"
+            "- Complaint Title: 'COMPLAINT UNDER SECTION 35 OF THE CONSUMER PROTECTION ACT, 2019'\n"
+            "- SECTIONS & FACTS OF THE COMPLAINT:\n"
+            "  1. Transaction Details: Purchase/booking details, amount paid, transaction date.\n"
+            "  2. DEFICIENCY IN SERVICE/DEFECT IN GOODS: Explicitly describe the defects, deficiency, failure of warranty, or unfair trade practice.\n"
+            "  3. Correspondence/Notice: Summary of communications and notices sent prior to filing the complaint.\n"
+            "  4. Cause of Action: When the cause of action arose.\n"
+            "  5. Jurisdiction: Explaining why the Commission has territorial and pecuniary jurisdiction.\n"
+            "- PRAYER/RELIEF SOUGHT: State clearly the specific reliefs prayed for:\n"
+            "  a) Refund of the principal amount with interest.\n"
+            "  b) Compensation for mental agony, harassment, and business loss.\n"
+            "  c) Litigation and filing expenses.\n"
+            "  d) Any other relief this Hon'ble Commission deems fit.\n"
+            "- VERIFICATION CLAUSE:\n"
+            "  'VERIFICATION: I, [Complainant Name], do hereby verify that the contents of paragraphs 1 to [N] are true and correct to my knowledge and belief.'\n"
+            "- SIGNATURE BLOCKS: 'COMPLAINANT: ________________________' and 'Through Counsel: ________________________'.\n"
+            "- INDEX OF DOCUMENTS: List placeholders for documents annexed (Invoice, warranty card, notices, postal receipts, etc.).\n"
+        )
+    elif tt == "Non-Disclosure Agreement (NDA)":
+        special_guidelines = (
+            "- The document must represent a formal Mutual/One-Way Non-Disclosure Agreement (NDA) under the Indian Contract Act, 1872.\n"
+            "- Title: 'MUTUAL NON-DISCLOSURE AGREEMENT'\n"
+            "- Preamble: Executed on [Date] between Disclosing Party [Disclosing Party Name] and Receiving Party [Receiving Party Name].\n"
+            "- Core clauses:\n"
+            "  1. DEFINITION OF CONFIDENTIAL INFORMATION: Technical, financial, and proprietary information.\n"
+            "  2. NON-DISCLOSURE OBLIGATIONS: Use of confidential information solely for the Purpose. Duty to protect with standard of care.\n"
+            "  3. EXCLUSIONS FROM CONFIDENTIALITY: Information already public, independent development, or legal order.\n"
+            "  4. TERM AND DURATION: Confidentiality obligations persist for [Duration] years from disclosure or agreement termination.\n"
+            "  5. REMEDIES: Injunctions, damages, and specific performance.\n"
+            "  6. GOVERNING LAW & JURISDICTION: Governance under the Indian Contract Act, 1872, with exclusive jurisdiction of courts in [Jurisdiction/City].\n"
+            "- SIGNATURES: Signature blocks for both parties, including witness signature areas.\n"
+        )
+    elif tt == "Promissory Note":
+        special_guidelines = (
+            "- The document must represent a legally binding Promissory Note under the Negotiable Instruments Act, 1881.\n"
+            "- Title: 'PROMISSORY NOTE'\n"
+            "- Stamp duty note: Include a designated box or placeholder representing the 'REVENUE STAMP' of appropriate value.\n"
+            "- Core Promise: 'ON DEMAND / On [Due Date], I, [Borrower Name], son/daughter of ________________, residing at [Borrower Address], hereby unconditionally promise to pay to [Lender Name], son/daughter of ________________, residing at [Lender Address], or to order, the sum of Rs. [Principal Amount] (Rupees ________________________ only) with interest at the rate of [Interest Rate]% per annum from the date hereof until repayment.'\n"
+            "- Witness areas: Include witness 1 and witness 2 signature fields.\n"
+            "- Signature of the Borrower: Place it directly across the revenue stamp placeholder.\n"
+        )
+    elif tt == "Power of Attorney":
+        special_guidelines = (
+            "- The document must represent a General/Special Power of Attorney (GPA/SPA) under the Powers of Attorney Act, 1882.\n"
+            "- Title: 'GENERAL POWER OF ATTORNEY / SPECIAL POWER OF ATTORNEY'\n"
+            "- Executed on a non-judicial stamp paper of appropriate value.\n"
+            "- Preamble: 'KNOW ALL MEN BY THESE PRESENTS that I, [Principal Name], residing at [Principal Address], do hereby nominate, constitute, and appoint [Attorney Name], residing at [Attorney Address], as my true and lawful Attorney in my name and on my behalf to perform all or any of the following acts...'\n"
+            "- SCOPE OF POWERS: Specific list of powers (e.g. sale, lease, mortgage, court filings, signing deeds).\n"
+            "- SCHEDULE OF PROPERTY: A section describing the boundaries and details of the property under power.\n"
+            "- REVOCATION AND INDEMNITY: Clauses governing the validity and indemnity of acts done by the Attorney.\n"
+            "- SIGNATURES: Signed by the Principal, accepted by the Attorney, and attested by two witnesses.\n"
+        )
+
     prompt = f"""You are Needhi AI, an expert Indian legal assistant.
-Generate a formal, legally valid {req.template_type} document for India.
+Generate a formal, highly accurate, and legally valid {tt} document for India.
 
 Here are the specific details to include in the document:
 {req.fields}
 
-Instructions:
-1. For any detail in the above list that is provided, insert it directly into its respective position in the document.
+Template-Specific Drafting Instructions:
+{special_guidelines}
+
+General Instructions:
+1. For any detail in the details list that is provided, insert it directly into its respective position in the document.
 2. For any detail/field that is empty, blank, or not provided (e.g., empty string ""), represent it in the document as a clearly labeled blank fillable underline (e.g., "________________________") so that it can be printed and filled in manually.
 3. Do NOT use brackets or text placeholders like "[Landlord Name]", "[Insert Date]", or "<Tenant Name>" for missing info; use actual underlines like "________________________" with a clear label preceding it (e.g., "Landlord Name: ________________________").
-4. Ensure the document has all standard legally binding clauses, a proper header, sections, covenants, witness signatures, deponent signatures, or verification sections as appropriate for a {req.template_type}.
-5. Use formal, professional legal language."""
+4. Ensure the document has all standard legally binding clauses, a proper header, sections, covenants, witness signatures, deponent signatures, or verification sections as appropriate.
+5. Use formal, professional, and precise legal language. Do not output any conversational text or metadata outside of the draft itself.
+"""
 
     try:
         response, _ = generate_gemini_content(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=2048))

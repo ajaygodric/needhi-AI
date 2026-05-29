@@ -216,7 +216,7 @@ const CaseTracker = ({ language }) => {
               searchType === "CNR Number" 
                 ? "e.g. TNCH01-008942-2024"
                 : searchType === "Party Name" 
-                ? "e.g. Rajesh Kumar" 
+                ? "e.g. abcd" 
                 : "Enter search value..."
             }
             value={searchVal}
@@ -238,7 +238,7 @@ const CaseTracker = ({ language }) => {
           <p style={{ color: "var(--text-secondary)", maxWidth: "450px", margin: "10px auto 0 auto" }}>
             {language === "Tamil" 
               ? "சி.என்.ஆர் (CNR) எண் சரியாக உள்ளதா என்று சரிபார்க்கவும். உதாரணத்திற்கு TNCH01-008942-2024 ஐப் பயன்படுத்தவும்."
-              : "We couldn't locate any records matching your search. Please check the spelling, format, or try searching for: 'TNCH01-008942-2024' or 'Rajesh Kumar'."}
+              : "We couldn't locate any records matching your search. Please check the spelling, format, or try searching for: 'TNCH01-008942-2024' or 'abcd'."}
           </p>
         </div>
       ) : (

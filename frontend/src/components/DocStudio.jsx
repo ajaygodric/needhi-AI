@@ -13,7 +13,10 @@ const DocStudio = ({ language }) => {
     "Legal Notice",
     "Affidavit",
     "Bail Application",
-    "Consumer Complaint"
+    "Consumer Complaint",
+    "Non-Disclosure Agreement (NDA)",
+    "Promissory Note",
+    "Power of Attorney"
   ];
 
   // Stamp Duty guides for each template
@@ -47,6 +50,24 @@ const DocStudio = ({ language }) => {
       notary: "Not Required. Simple declaration/index verification is sufficient.",
       witnesses: "Not Required during filing, affidavits may be submitted during evidence stage.",
       note: "Can be filed online at edaakhil.nic.in for claims up to ₹50 Lakhs (District Commission)."
+    },
+    "Non-Disclosure Agreement (NDA)": {
+      stamp: "₹100 or ₹200 Non-Judicial Stamp Paper",
+      notary: "Optional, but recommended for commercial use.",
+      witnesses: "2 witnesses recommended.",
+      note: "Governed under the Indian Contract Act, 1872."
+    },
+    "Promissory Note": {
+      stamp: "Revenue Stamp of Rs. 1/- to Rs. 5/- pasted and crossed.",
+      notary: "Not mandatory, but recommended if loan is substantial.",
+      witnesses: "2 witnesses recommended for evidentiary value.",
+      note: "Governed under the Negotiable Instruments Act, 1881."
+    },
+    "Power of Attorney": {
+      stamp: "Non-Judicial Stamp Paper (varies by state, typically ₹100 to ₹500).",
+      notary: "Mandatory if dealing with immovable property or court presentation.",
+      witnesses: "2 witnesses with ID proofs mandatory.",
+      note: "Must be registered at the Sub-Registrar's Office if granting power to sell property."
     }
   };
 
@@ -123,23 +144,23 @@ const DocStudio = ({ language }) => {
                 <div className="grid-2">
                   <div className="input-group">
                     <label className="input-label">Landlord Full Name</label>
-                    <input type="text" className="input-control" placeholder="e.g. A. Krishnan" required value={fields.landlord || ""} onChange={(e) => handleFieldChange("landlord", e.target.value)} />
+                    <input type="text" className="input-control" placeholder="e.g. abcd" required value={fields.landlord || ""} onChange={(e) => handleFieldChange("landlord", e.target.value)} />
                   </div>
                   <div className="input-group">
                     <label className="input-label">Tenant Full Name</label>
-                    <input type="text" className="input-control" placeholder="e.g. S. Vinoth" required value={fields.tenant || ""} onChange={(e) => handleFieldChange("tenant", e.target.value)} />
+                    <input type="text" className="input-control" placeholder="e.g. xyz" required value={fields.tenant || ""} onChange={(e) => handleFieldChange("tenant", e.target.value)} />
                   </div>
                   <div className="input-group">
                     <label className="input-label">Property Address</label>
-                    <input type="text" className="input-control" placeholder="Complete address of let property" required value={fields.address || ""} onChange={(e) => handleFieldChange("address", e.target.value)} />
+                    <input type="text" className="input-control" placeholder="Complete address of property" required value={fields.address || ""} onChange={(e) => handleFieldChange("address", e.target.value)} />
                   </div>
                   <div className="input-group">
                     <label className="input-label">Monthly Rent (₹)</label>
-                    <input type="text" className="input-control" placeholder="e.g. 15,000" required value={fields.rent || ""} onChange={(e) => handleFieldChange("rent", e.target.value)} />
+                    <input type="text" className="input-control" placeholder="e.g. 1000" required value={fields.rent || ""} onChange={(e) => handleFieldChange("rent", e.target.value)} />
                   </div>
                   <div className="input-group">
                     <label className="input-label">Security Deposit (₹)</label>
-                    <input type="text" className="input-control" placeholder="e.g. 50,000" required value={fields.deposit || ""} onChange={(e) => handleFieldChange("deposit", e.target.value)} />
+                    <input type="text" className="input-control" placeholder="e.g. 5000" required value={fields.deposit || ""} onChange={(e) => handleFieldChange("deposit", e.target.value)} />
                   </div>
                   <div className="input-group">
                     <label className="input-label">Duration (Months)</label>
@@ -153,24 +174,24 @@ const DocStudio = ({ language }) => {
                   <div className="grid-2">
                     <div className="input-group">
                       <label className="input-label">Sender Name</label>
-                      <input type="text" className="input-control" placeholder="Sender (You)" required value={fields.sender || ""} onChange={(e) => handleFieldChange("sender", e.target.value)} />
+                      <input type="text" className="input-control" placeholder="e.g. abcd" required value={fields.sender || ""} onChange={(e) => handleFieldChange("sender", e.target.value)} />
                     </div>
                     <div className="input-group">
                       <label className="input-label">Receiver Name</label>
-                      <input type="text" className="input-control" placeholder="Opposite Party Name" required value={fields.receiver || ""} onChange={(e) => handleFieldChange("receiver", e.target.value)} />
+                      <input type="text" className="input-control" placeholder="e.g. xyz" required value={fields.receiver || ""} onChange={(e) => handleFieldChange("receiver", e.target.value)} />
                     </div>
                     <div className="input-group">
                       <label className="input-label">Sender Address</label>
-                      <input type="text" className="input-control" required value={fields.sender_addr || ""} onChange={(e) => handleFieldChange("sender_addr", e.target.value)} />
+                      <input type="text" className="input-control" placeholder="Sender address" required value={fields.sender_addr || ""} onChange={(e) => handleFieldChange("sender_addr", e.target.value)} />
                     </div>
                     <div className="input-group">
                       <label className="input-label">Receiver Address</label>
-                      <input type="text" className="input-control" required value={fields.receiver_addr || ""} onChange={(e) => handleFieldChange("receiver_addr", e.target.value)} />
+                      <input type="text" className="input-control" placeholder="Receiver address" required value={fields.receiver_addr || ""} onChange={(e) => handleFieldChange("receiver_addr", e.target.value)} />
                     </div>
                   </div>
                   <div className="input-group">
                     <label className="input-label">Notice Subject</label>
-                    <input type="text" className="input-control" placeholder="e.g. Legal Notice for recovery of dues" required value={fields.subject || ""} onChange={(e) => handleFieldChange("subject", e.target.value)} />
+                    <input type="text" className="input-control" placeholder="e.g. Notice for recovery of dues" required value={fields.subject || ""} onChange={(e) => handleFieldChange("subject", e.target.value)} />
                   </div>
                   <div className="input-group">
                     <label className="input-label">Grievance Details & Cause of Action</label>
@@ -184,24 +205,24 @@ const DocStudio = ({ language }) => {
                   <div className="grid-3">
                     <div className="input-group">
                       <label className="input-label">Deponent Name</label>
-                      <input type="text" className="input-control" placeholder="Your Name" required value={fields.name || ""} onChange={(e) => handleFieldChange("name", e.target.value)} />
+                      <input type="text" className="input-control" placeholder="e.g. abcd" required value={fields.name || ""} onChange={(e) => handleFieldChange("name", e.target.value)} />
                     </div>
                     <div className="input-group">
                       <label className="input-label">Age</label>
-                      <input type="text" className="input-control" required value={fields.age || ""} onChange={(e) => handleFieldChange("age", e.target.value)} />
+                      <input type="text" className="input-control" placeholder="e.g. 1234" required value={fields.age || ""} onChange={(e) => handleFieldChange("age", e.target.value)} />
                     </div>
                     <div className="input-group">
                       <label className="input-label">State</label>
-                      <input type="text" className="input-control" required value={fields.state || ""} onChange={(e) => handleFieldChange("state", e.target.value)} />
+                      <input type="text" className="input-control" placeholder="e.g. Tamil Nadu" required value={fields.state || ""} onChange={(e) => handleFieldChange("state", e.target.value)} />
                     </div>
                   </div>
                   <div className="input-group">
                     <label className="input-label">Permanent Address</label>
-                    <input type="text" className="input-control" required value={fields.address || ""} onChange={(e) => handleFieldChange("address", e.target.value)} />
+                    <input type="text" className="input-control" placeholder="Permanent address" required value={fields.address || ""} onChange={(e) => handleFieldChange("address", e.target.value)} />
                   </div>
                   <div className="input-group">
                     <label className="input-label">Declaration Statement / Purpose</label>
-                    <textarea rows="4" className="input-control" placeholder="I state that I have lost my degree certificate / changed my name from X to Y..." required value={fields.content || ""} onChange={(e) => handleFieldChange("content", e.target.value)}></textarea>
+                    <textarea rows="4" className="input-control" placeholder="I state that I have lost my degree certificate / changed my name..." required value={fields.content || ""} onChange={(e) => handleFieldChange("content", e.target.value)}></textarea>
                   </div>
                 </div>
               )}
@@ -211,7 +232,7 @@ const DocStudio = ({ language }) => {
                   <div className="grid-2">
                     <div className="input-group">
                       <label className="input-label">Accused Name</label>
-                      <input type="text" className="input-control" required value={fields.accused || ""} onChange={(e) => handleFieldChange("accused", e.target.value)} />
+                      <input type="text" className="input-control" placeholder="e.g. abcd" required value={fields.accused || ""} onChange={(e) => handleFieldChange("accused", e.target.value)} />
                     </div>
                     <div className="input-group">
                       <label className="input-label">Concerned Court Name</label>
@@ -219,16 +240,16 @@ const DocStudio = ({ language }) => {
                     </div>
                     <div className="input-group">
                       <label className="input-label">FIR / Crime Number</label>
-                      <input type="text" className="input-control" placeholder="e.g. Crime No. 244/2026" required value={fields.case_no || ""} onChange={(e) => handleFieldChange("case_no", e.target.value)} />
+                      <input type="text" className="input-control" placeholder="e.g. Crime No. 1234/2026" required value={fields.case_no || ""} onChange={(e) => handleFieldChange("case_no", e.target.value)} />
                     </div>
                     <div className="input-group">
                       <label className="input-label">Police Station & State</label>
-                      <input type="text" className="input-control" required value={fields.ps || ""} onChange={(e) => handleFieldChange("ps", e.target.value)} />
+                      <input type="text" className="input-control" placeholder="e.g. PS Name, State" required value={fields.ps || ""} onChange={(e) => handleFieldChange("ps", e.target.value)} />
                     </div>
                   </div>
                   <div className="input-group">
                     <label className="input-label">Grounds for Bail</label>
-                    <textarea rows="4" className="input-control" placeholder="e.g. Accused is innocent, false implication, willing to corporate with investigation, has deep roots in community..." required value={fields.grounds || ""} onChange={(e) => handleFieldChange("grounds", e.target.value)}></textarea>
+                    <textarea rows="4" className="input-control" placeholder="Describe grounds for bail application..." required value={fields.grounds || ""} onChange={(e) => handleFieldChange("grounds", e.target.value)}></textarea>
                   </div>
                 </div>
               )}
@@ -238,25 +259,25 @@ const DocStudio = ({ language }) => {
                   <div className="grid-2">
                     <div className="input-group">
                       <label className="input-label">Complainant Name</label>
-                      <input type="text" className="input-control" required value={fields.complainant || ""} onChange={(e) => handleFieldChange("complainant", e.target.value)} />
+                      <input type="text" className="input-control" placeholder="e.g. abcd" required value={fields.complainant || ""} onChange={(e) => handleFieldChange("complainant", e.target.value)} />
                     </div>
                     <div className="input-group">
                       <label className="input-label">Opposite Party (Company)</label>
-                      <input type="text" className="input-control" placeholder="e.g. Samsung Electronics Ltd." required value={fields.opposite_party || ""} onChange={(e) => handleFieldChange("opposite_party", e.target.value)} />
+                      <input type="text" className="input-control" placeholder="e.g. xyz Company Ltd." required value={fields.opposite_party || ""} onChange={(e) => handleFieldChange("opposite_party", e.target.value)} />
                     </div>
                     <div className="input-group">
                       <label className="input-label">Complainant Address</label>
-                      <input type="text" className="input-control" required value={fields.complainant_addr || ""} onChange={(e) => handleFieldChange("complainant_addr", e.target.value)} />
+                      <input type="text" className="input-control" placeholder="Complainant address" required value={fields.complainant_addr || ""} onChange={(e) => handleFieldChange("complainant_addr", e.target.value)} />
                     </div>
                     <div className="input-group">
                       <label className="input-label">Opposite Party Address</label>
-                      <input type="text" className="input-control" required value={fields.opposite_addr || ""} onChange={(e) => handleFieldChange("opposite_addr", e.target.value)} />
+                      <input type="text" className="input-control" placeholder="Opposite party address" required value={fields.opposite_addr || ""} onChange={(e) => handleFieldChange("opposite_addr", e.target.value)} />
                     </div>
                   </div>
                   <div className="grid-2">
                     <div className="input-group">
                       <label className="input-label">Transaction Amount (₹)</label>
-                      <input type="text" className="input-control" placeholder="e.g. 45,000" required value={fields.amount || ""} onChange={(e) => handleFieldChange("amount", e.target.value)} />
+                      <input type="text" className="input-control" placeholder="e.g. 1000" required value={fields.amount || ""} onChange={(e) => handleFieldChange("amount", e.target.value)} />
                     </div>
                     <div className="input-group">
                       <label className="input-label">Purchase Date</label>
@@ -265,7 +286,98 @@ const DocStudio = ({ language }) => {
                   </div>
                   <div className="input-group">
                     <label className="input-label">Details of Deficiency of Service</label>
-                    <textarea rows="4" className="input-control" placeholder="Explain the defect in product, refusal of replacement or warranty issues..." required value={fields.complaint || ""} onChange={(e) => handleFieldChange("complaint", e.target.value)}></textarea>
+                    <textarea rows="4" className="input-control" placeholder="Explain deficiency of service..." required value={fields.complaint || ""} onChange={(e) => handleFieldChange("complaint", e.target.value)}></textarea>
+                  </div>
+                </div>
+              )}
+
+              {templateType === "Non-Disclosure Agreement (NDA)" && (
+                <div>
+                  <div className="grid-2">
+                    <div className="input-group">
+                      <label className="input-label">Disclosing Party</label>
+                      <input type="text" className="input-control" placeholder="e.g. abcd" required value={fields.disclosing_party || ""} onChange={(e) => handleFieldChange("disclosing_party", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Receiving Party</label>
+                      <input type="text" className="input-control" placeholder="e.g. xyz" required value={fields.receiving_party || ""} onChange={(e) => handleFieldChange("receiving_party", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Confidentiality Term (Years)</label>
+                      <input type="text" className="input-control" placeholder="e.g. 1234" required value={fields.term_years || ""} onChange={(e) => handleFieldChange("term_years", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Governing Jurisdiction (City)</label>
+                      <input type="text" className="input-control" placeholder="e.g. Chennai" required value={fields.jurisdiction || ""} onChange={(e) => handleFieldChange("jurisdiction", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Purpose of Information Disclosure</label>
+                    <textarea rows="4" className="input-control" placeholder="Describe the business collaboration or project discussion for which information is shared..." required value={fields.purpose || ""} onChange={(e) => handleFieldChange("purpose", e.target.value)}></textarea>
+                  </div>
+                </div>
+              )}
+
+              {templateType === "Promissory Note" && (
+                <div>
+                  <div className="grid-2">
+                    <div className="input-group">
+                      <label className="input-label">Borrower Full Name</label>
+                      <input type="text" className="input-control" placeholder="e.g. abcd" required value={fields.borrower || ""} onChange={(e) => handleFieldChange("borrower", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Lender Full Name</label>
+                      <input type="text" className="input-control" placeholder="e.g. xyz" required value={fields.lender || ""} onChange={(e) => handleFieldChange("lender", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Principal Amount (₹)</label>
+                      <input type="text" className="input-control" placeholder="e.g. 1000" required value={fields.amount || ""} onChange={(e) => handleFieldChange("amount", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Interest Rate (% Per Annum)</label>
+                      <input type="text" className="input-control" placeholder="e.g. 1234" required value={fields.interest_rate || ""} onChange={(e) => handleFieldChange("interest_rate", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="grid-2">
+                    <div className="input-group">
+                      <label className="input-label">Repayment Due Date</label>
+                      <input type="text" className="input-control" placeholder="e.g. 31st December 2026 or On Demand" required value={fields.due_date || ""} onChange={(e) => handleFieldChange("due_date", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Execution City & State</label>
+                      <input type="text" className="input-control" placeholder="e.g. Chennai, Tamil Nadu" required value={fields.city_state || ""} onChange={(e) => handleFieldChange("city_state", e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {templateType === "Power of Attorney" && (
+                <div>
+                  <div className="grid-2">
+                    <div className="input-group">
+                      <label className="input-label">Principal Name (You)</label>
+                      <input type="text" className="input-control" placeholder="e.g. abcd" required value={fields.principal || ""} onChange={(e) => handleFieldChange("principal", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Attorney Agent Name</label>
+                      <input type="text" className="input-control" placeholder="e.g. xyz" required value={fields.agent || ""} onChange={(e) => handleFieldChange("agent", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Principal Address</label>
+                      <input type="text" className="input-control" placeholder="Principal address" required value={fields.principal_addr || ""} onChange={(e) => handleFieldChange("principal_addr", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Attorney Address</label>
+                      <input type="text" className="input-control" placeholder="Attorney address" required value={fields.agent_addr || ""} onChange={(e) => handleFieldChange("agent_addr", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Schedule of Property (If any)</label>
+                    <textarea rows="3" className="input-control" placeholder="Describe the physical bounds, survey number, and address of the property..." value={fields.property_schedule || ""} onChange={(e) => handleFieldChange("property_schedule", e.target.value)}></textarea>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Specific Powers to Delegate</label>
+                    <textarea rows="4" className="input-control" placeholder="Describe the specific actions the attorney is authorized to take..." required value={fields.powers || ""} onChange={(e) => handleFieldChange("powers", e.target.value)}></textarea>
                   </div>
                 </div>
               )}
