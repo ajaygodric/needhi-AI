@@ -200,7 +200,29 @@ class BookLawyerRequest(BaseModel):
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "model": ACTIVE_MODEL_NAME, "keys_loaded": len(API_KEYS)}
+    brevo_key = os.environ.get("BREVO_API_KEY", "")
+    brevo_prefix = brevo_key[:12] if brevo_key else "Not Set"
+    
+    secrets_path = os.path.join(ROOT_DIR, ".streamlit", "secrets.toml")
+    secrets_brevo = "Not Set"
+    if os.path.exists(secrets_path):
+        try:
+            with open(secrets_path, "r") as f:
+                for line in f.read().splitlines():
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        if k.strip() == "BREVO_API_KEY":
+                            secrets_brevo = v.strip().strip('"').strip("'")[:12]
+        except Exception:
+            pass
+            
+    return {
+        "status": "ok",
+        "model": ACTIVE_MODEL_NAME,
+        "keys_loaded": len(API_KEYS),
+        "brevo_env_prefix": brevo_prefix,
+        "brevo_secrets_prefix": secrets_brevo
+    }
 
 @app.post("/api/chat")
 async def chat_endpoint(req: ChatRequest):
