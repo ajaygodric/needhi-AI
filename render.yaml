@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: needhi-ai
+    env: docker
+    plan: free
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false # You will enter your Gemini API key in the Render dashboard
+      - key: SMTP_HOST
+        sync: false # Optional: Enter SMTP host for email notifications
+      - key: SMTP_PORT
+        sync: false # Optional: Enter SMTP port (e.g. 465)
+      - key: SMTP_USER
+        sync: false # Optional: Enter SMTP username/email
+      - key: SMTP_PASSWORD
+        sync: false # Optional: Enter SMTP app password
