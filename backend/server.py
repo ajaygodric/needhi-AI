@@ -881,27 +881,59 @@ def generate_fir(req: FIRRequest):
     ps_line = f"Police Station: {req.ps}" if req.ps else "Police Station: ________________________"
     name_line = req.name if req.name else "________________________"
     
-    prompt = f"""You are Needhi AI, an Indian legal assistant. Generate a formal FIR (First Information Report) draft in English based on the following incident. Use proper legal FIR format used in India.
-Any details that are not provided or are blank must be represented in the document as a clearly labeled blank underline (e.g., "________________________") so that it can be printed and filled in manually. Do not use generic bracketed placeholders (like '[Your Address]' or similar); always use blank underlines '________________________'.
-
-Incident: {req.issue}
-State: {req.state or 'India'}
-{ps_line}
-Complainant: {name_line}
-
-Format the FIR with these sections:
-1. TO: The Station House Officer, {ps_line}
-2. Subject line
-3. Complainant details (name, address placeholder)
-4. Date, time and place of incident
-5. Detailed description of the incident
-6. Names/description of accused (if known)
-7. Witnesses (if any)
-8. Relief sought
-9. Declaration
-10. Signature line
-
-Make it formal, legally precise, and ready to submit. Include relevant BNS/IPC sections at the end."""
+    prompt = f"""You are Needhi AI, an elite Indian legal counsel. Generate a highly professional, formal, and legally precise written complaint addressed to the Station House Officer (SHO) to register a First Information Report (FIR) under Section 173 of the Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) (formerly Section 154 of the Code of Criminal Procedure, 1973).
+    
+    Any details that are not provided or are blank must be represented in the document as a clearly labeled blank underline (e.g., "________________________") so that it can be printed and filled in manually. Do not use generic bracketed placeholders (like '[Your Address]' or similar); always use blank underlines.
+    
+    Incident Details Provided:
+    - Incident Narrative/Issue: {req.issue}
+    - State: {req.state or '________________________'}
+    - Police Station: {req.ps or '________________________'}
+    - Complainant Name: {name_line}
+    
+    Structure the document as a standard Indian Police complaint with the following sections, formatted using clean, professional markdown:
+    
+    1. **OFFICIAL ADDRESS HEADER**:
+       To,
+       The Station House Officer,
+       {ps_line},
+       District: ________________________,
+       {req.state or 'State: ________________________'}
+       
+    2. **SUBJECT LINE**: 
+       Must be highly formal, stating: "SUBJECT: Written Complaint for registration of FIR under Section 173 of the BNSS, 2023, regarding the offences committed against the Complainant on [Date/Time placeholder]."
+       
+    3. **COMPLAINANT DETAILS**:
+       State the Complainant's name, parentage/husband's name (father's/husband's name: ________________________), age (________________________ years), residential address (________________________), contact number (________________________), and nationality (________________________).
+       
+    4. **ACCUSED DETAILS**:
+       Provide details of the accused. If known, list their names, descriptions, or addresses. If unknown, state "Unidentified/Unknown persons (to be identified during investigation)".
+       
+    5. **CHRONOLOGICAL NARRATIVE OF THE INCIDENT**:
+       Draft a detailed, factual, and legally precise narration of the incident based on the user's issue. Use formal legal vocabulary. Ensure the chronological chain of events is clear (Date, Time, and Specific Location placeholders included).
+       
+    6. **SPECIFIC OFFENCES & LEGAL SECTIONS**:
+       Explicitly state which offences have been committed. For each offence, provide a brief paragraph explaining how the acts constitute the offence, citing both the **new Bharatiya Nyaya Sanhita, 2023 (BNS)** section and the **corresponding old Indian Penal Code, 1860 (IPC)** section in parentheses for full legal compatibility. E.g.:
+       - Voluntarily causing hurt: Section 115(2) BNS (formerly Section 323 IPC)
+       - Cheating: Section 318 BNS (formerly Section 420 IPC)
+       - Theft: Section 303 BNS (formerly Section 379 IPC)
+       - Criminal Intimidation: Section 351 BNS (formerly Section 506 IPC)
+       - Criminal Conspiracy: Section 61 BNS (formerly Section 120B IPC)
+       - Criminal Trespass: Section 329 BNS (formerly Section 447 IPC)
+       Ensure the sections cited are 100% accurate based on the legal definitions.
+       
+    7. **RELIEF SOUGHT / ACTION REQUESTED**:
+       A formal prayer requesting the SHO to:
+       a) Register a First Information Report (FIR) under Section 173 of the BNSS, 2023, against the accused persons.
+       b) Conduct a thorough investigation and secure the arrest of the accused.
+       c) Recovery of any stolen property or securing of material evidence.
+       
+    8. **DECLARATION & SIGNATURE BLOCKS**:
+       - Place: ________________________
+       - Date: ________________________
+       - Complainant Signature block (Signature: ________________________, Name: {name_line})
+       
+    Tone: Extremely formal, authoritative, and structured according to standard legal practice in Indian police stations. Output only the drafted complaint. Do not add any conversational remarks or notes outside the draft."""
 
     try:
         response, _ = generate_gemini_content(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=2048))
