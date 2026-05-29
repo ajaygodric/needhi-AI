@@ -506,6 +506,8 @@ def book_lawyer(req: BookLawyerRequest):
     smtp_port = os.environ.get("SMTP_PORT", "")
     smtp_user = os.environ.get("SMTP_USER", "")
     smtp_password = os.environ.get("SMTP_PASSWORD", "")
+    resend_key = os.environ.get("RESEND_API_KEY", "")
+    brevo_key = os.environ.get("BREVO_API_KEY", "")
     
     # Check secrets.toml
     secrets_path = os.path.join(ROOT_DIR, ".streamlit", "secrets.toml")
@@ -521,37 +523,86 @@ def book_lawyer(req: BookLawyerRequest):
                         elif k == "SMTP_PORT" and v: smtp_port = v
                         elif k == "SMTP_USER" and v: smtp_user = v
                         elif k == "SMTP_PASSWORD" and v: smtp_password = v
+                        elif k == "RESEND_API_KEY" and v: resend_key = v
+                        elif k == "BREVO_API_KEY" and v: brevo_key = v
         except Exception:
             pass
             
-    email_status = "Emailed to client successfully"
-    email_sent = True
+    email_status = "Simulated email dispatch"
+    email_sent = False
     
     # Construct Email Content
     subject = f"Needhi AI: Legal Consultation Ticket - {booking_code}"
     body = f"""Dear {req.client_name},
-
+ 
 Your legal consultation with {lawyer['name']} has been successfully scheduled.
-
+ 
 --- CONSULTATION TICKET ---
 Ticket Code: {booking_code}
 Lawyer: {lawyer['name']} ({lawyer['specialization']})
 Date: {req.date}
 Time Slot: {req.slot}
 Fee: \u20b9{lawyer['fee']} (Payable to the lawyer)
-
+ 
 Advocate Contact Details:
 Phone: {lawyer['phone']}
 Email: {lawyer['email']}
 City: {lawyer['city']}
-
+ 
 Case Summary provided:
 {req.details}
-
+ 
 Thank you for choosing Needhi AI.
 """
     
-    if smtp_host and smtp_port and smtp_user and smtp_password:
+    if resend_key:
+        try:
+            import urllib.request
+            url = "https://api.resend.com/emails"
+            headers = {
+                "Authorization": f"Bearer {resend_key}",
+                "Content-Type": "application/json"
+            }
+            # Resend requires a verified domain unless using onboarding@resend.dev
+            from_email = os.environ.get("EMAIL_FROM", "onboarding@resend.dev")
+            data = {
+                "from": f"Needhi AI <{from_email}>",
+                "to": [req.client_email],
+                "subject": subject,
+                "text": body
+            }
+            api_req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers, method="POST")
+            with urllib.request.urlopen(api_req) as response:
+                resp_data = json.loads(response.read().decode())
+                email_sent = True
+                email_status = f"Sent via Resend API (ID: {resp_data.get('id')})"
+        except Exception as e:
+            email_status = f"Failed to send via Resend API: {e}"
+            
+    elif brevo_key:
+        try:
+            import urllib.request
+            url = "https://api.brevo.com/v3/smtp/email"
+            headers = {
+                "api-key": brevo_key,
+                "Content-Type": "application/json"
+            }
+            from_email = os.environ.get("EMAIL_FROM", "noreply@needhi.ai")
+            data = {
+                "sender": {"name": "Needhi AI", "email": from_email},
+                "to": [{"email": req.client_email, "name": req.client_name}],
+                "subject": subject,
+                "textContent": body
+            }
+            api_req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers, method="POST")
+            with urllib.request.urlopen(api_req) as response:
+                resp_data = json.loads(response.read().decode())
+                email_sent = True
+                email_status = f"Sent via Brevo API (MessageId: {resp_data.get('messageId')})"
+        except Exception as e:
+            email_status = f"Failed to send via Brevo API: {e}"
+            
+    elif smtp_host and smtp_port and smtp_user and smtp_password:
         try:
             import smtplib
             from email.mime.text import MIMEText
@@ -580,7 +631,7 @@ Thank you for choosing Needhi AI.
             email_sent = True
             email_status = "Emailed to client successfully"
         except Exception as e:
-            email_status = f"Failed to send email: {e}"
+            email_status = f"Failed to send email via SMTP: {e}"
     else:
         # Print simulated dispatch details
         print(f"\n=== NEEDHI AI SMTP SIMULATOR ===")
