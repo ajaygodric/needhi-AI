@@ -587,7 +587,9 @@ Thank you for choosing Needhi AI.
                 "api-key": brevo_key,
                 "Content-Type": "application/json"
             }
-            from_email = os.environ.get("EMAIL_FROM", "noreply@needhi.ai")
+            from_email = os.environ.get("EMAIL_FROM", "")
+            if not from_email:
+                from_email = smtp_user if smtp_user else "noreply@needhi.ai"
             data = {
                 "sender": {"name": "Needhi AI", "email": from_email},
                 "to": [
