@@ -320,7 +320,7 @@ const LawyerBooking = ({ language }) => {
                     <input
                       type="text"
                       className="input-control"
-                      placeholder="e.g. Rajesh Kumar"
+                      placeholder="e.g. abcd"
                       required
                       value={clientName}
                       onChange={(e) => setClientName(e.target.value)}
@@ -332,7 +332,7 @@ const LawyerBooking = ({ language }) => {
                       <input
                         type="email"
                         className="input-control"
-                        placeholder="e.g. rajesh@example.com"
+                        placeholder="e.g. xyz@example.com"
                         required
                         value={clientEmail}
                         onChange={(e) => setClientEmail(e.target.value)}
@@ -343,7 +343,7 @@ const LawyerBooking = ({ language }) => {
                       <input
                         type="tel"
                         className="input-control"
-                        placeholder="e.g. +91 98765 43210"
+                        placeholder="e.g. 1234"
                         required
                         value={clientPhone}
                         onChange={(e) => setClientPhone(e.target.value)}

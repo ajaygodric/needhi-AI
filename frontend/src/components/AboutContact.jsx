@@ -117,11 +117,11 @@ const AboutContact = ({ language }) => {
             <form onSubmit={handleContactSubmit}>
               <div className="input-group">
                 <label className="input-label">{language === "Tamil" ? "முழு பெயர்" : "Your Name"}</label>
-                <input type="text" className="input-control" required value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="e.g. Rajesh Kumar" />
+                <input type="text" className="input-control" required value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="e.g. abcd" />
               </div>
               <div className="input-group">
                 <label className="input-label">{language === "Tamil" ? "மின்னஞ்சல்" : "Your Email Address"}</label>
-                <input type="email" className="input-control" required value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="e.g. rajesh@example.com" />
+                <input type="email" className="input-control" required value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="e.g. xyz@example.com" />
               </div>
               <div className="input-group">
                 <label className="input-label">{language === "Tamil" ? "செய்தி" : "Message / Query"}</label>

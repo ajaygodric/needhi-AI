@@ -124,7 +124,7 @@ Complainant contact phone: ${complainantPhone}
                 <input
                   type="text"
                   className="input-control"
-                  placeholder="e.g. Rajesh Kumar"
+                  placeholder="e.g. abcd"
                   value={complainantName}
                   onChange={(e) => setComplainantName(e.target.value)}
                 />
@@ -134,7 +134,7 @@ Complainant contact phone: ${complainantPhone}
                 <input
                   type="text"
                   className="input-control"
-                  placeholder="e.g. 9876543210"
+                  placeholder="e.g. 1234"
                   value={complainantPhone}
                   onChange={(e) => setComplainantPhone(e.target.value)}
                 />
