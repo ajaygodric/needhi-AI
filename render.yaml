@@ -5,7 +5,13 @@ services:
     plan: free
     envVars:
       - key: GEMINI_API_KEY
-        sync: false # You will enter your Gemini API key in the Render dashboard
+        sync: false # Primary Gemini API Key
+      - key: GEMINI_API_KEY_2
+        sync: false # Optional: Secondary Gemini API Key
+      - key: GEMINI_API_KEY_3
+        sync: false # Optional: Tertiary Gemini API Key
+      - key: GEMINI_API_KEY_4
+        sync: false # Optional: Quaternary Gemini API Key
       - key: SMTP_HOST
         sync: false # Optional: Enter SMTP host for email notifications
       - key: SMTP_PORT
