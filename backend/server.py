@@ -575,7 +575,7 @@ Thank you for choosing Needhi AI.
             with urllib.request.urlopen(api_req) as response:
                 resp_data = json.loads(response.read().decode())
                 email_sent = True
-                email_status = f"Sent via Resend API (ID: {resp_data.get('id')})"
+                email_status = f"Sent successfully via Resend API (ID: {resp_data.get('id')})"
         except Exception as e:
             email_status = f"Failed to send via Resend API: {e}"
             
@@ -601,7 +601,7 @@ Thank you for choosing Needhi AI.
             with urllib.request.urlopen(api_req) as response:
                 resp_data = json.loads(response.read().decode())
                 email_sent = True
-                email_status = f"Sent via Brevo API (MessageId: {resp_data.get('messageId')})"
+                email_status = f"Sent successfully via Brevo API (MessageId: {resp_data.get('messageId')})"
         except Exception as e:
             email_status = f"Failed to send via Brevo API: {e}"
             
