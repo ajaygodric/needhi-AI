@@ -70,28 +70,15 @@ MODEL_FALLBACK_ORDER = [
     "models/gemini-2.0-flash-lite",
 ]
 
-def get_working_model():
-    try:
-        all_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        preferred = ["models/gemini-2.5-flash-lite", "models/gemini-3.1-flash-lite", "models/gemini-2.5-flash", "models/gemini-2.0-flash", "models/gemini-2.0-flash-lite"]
-        for p in preferred:
-            if p in all_models:
-                return p
-        flash_models = [m for m in all_models if "flash" in m.lower() and "preview" not in m and "tts" not in m]
-        if flash_models:
-            return flash_models[0]
-        return all_models[0] if all_models else "models/gemini-2.5-flash-lite"
-    except Exception:
-        return "models/gemini-2.5-flash-lite"
-
-ACTIVE_MODEL_NAME = get_working_model()
+ACTIVE_MODEL_NAME = "models/gemini-2.5-flash-lite"
 
 # Helper function to query Gemini with Key Rotation and Model Fallbacks
 def generate_gemini_content(prompt_or_parts, generation_config=None, stream=False):
+    global API_KEYS
     models_to_try = [ACTIVE_MODEL_NAME] + [m for m in MODEL_FALLBACK_ORDER if m != ACTIVE_MODEL_NAME]
     
     # Try all configured API keys
-    for api_key in API_KEYS:
+    for idx, api_key in enumerate(API_KEYS):
         try:
             genai.configure(api_key=api_key)
             for model_name in models_to_try:
@@ -110,13 +97,22 @@ def generate_gemini_content(prompt_or_parts, generation_config=None, stream=Fals
                     ]
                     
                     if stream:
-                        return model.generate_content(prompt_or_parts, stream=True, **kwargs), model_name
+                        res = model.generate_content(prompt_or_parts, stream=True, **kwargs)
                     else:
-                        return model.generate_content(prompt_or_parts, **kwargs), model_name
+                        res = model.generate_content(prompt_or_parts, **kwargs)
+                        
+                    # Promote the working key to the front of API_KEYS to make subsequent calls fast
+                    if idx > 0:
+                        working_key = API_KEYS.pop(idx)
+                        API_KEYS.insert(0, working_key)
+                        
+                    return res, model_name
                 except Exception as e:
-                    if "429" in str(e):
-                        continue # try next model or key
-                    raise e
+                    err_str = str(e)
+                    # If this key is rate-limited (429) or invalid (400, 401), break to the next key immediately
+                    if "429" in err_str or "API_KEY_INVALID" in err_str or "400" in err_str or "401" in err_str:
+                        break
+                    continue
         except Exception:
             continue
             
