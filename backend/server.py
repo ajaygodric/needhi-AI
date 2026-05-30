@@ -848,9 +848,9 @@ def book_lawyer(req: BookLawyerRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save booking: {e}")
         
-    # Construct Email Content
-    subject = f"Needhi AI: Legal Consultation Ticket - {booking_code}"
-    body = f"""Dear {req.client_name},
+    # Construct Client Email Content
+    client_subject = f"Needhi AI: Legal Consultation Ticket - {booking_code}"
+    client_body = f"""Dear {req.client_name},
  
 Your legal consultation with {lawyer['name']} has been successfully scheduled.
  
@@ -877,12 +877,43 @@ Case Summary provided:
 Thank you for choosing Needhi AI.
 """
     
-    # Send email notification
-    recipients = [
-        {"email": req.client_email, "name": req.client_name},
-        {"email": lawyer["email"], "name": lawyer["name"]}
-    ]
-    email_sent, email_status = send_email_notification(recipients, subject, body)
+    # Construct Advocate Email Content
+    advocate_subject = f"Needhi AI: New Consultation Booking - {booking_code}"
+    advocate_body = f"""Dear {lawyer['name']},
+ 
+A new legal consultation has been scheduled with you by {req.client_name}.
+ 
+--- CONSULTATION DETAILS ---
+Ticket Code: {booking_code}
+Date: {req.date}
+Time Slot: {req.slot}
+Fee: ₹{lawyer['fee']} (Collectable from the client)
+ 
+Client Contact Details:
+Name: {req.client_name}
+Phone: {req.client_phone}
+Email: {req.client_email}
+ 
+Advocate Contact Details (Your Info):
+Phone: {lawyer['phone']}
+Email: {lawyer['email']}
+City: {lawyer['city']}
+ 
+Case Summary provided by client:
+{req.details}
+ 
+Thank you for using Needhi AI.
+"""
+    
+    # Send email notifications separately
+    client_recipients = [{"email": req.client_email, "name": req.client_name}]
+    advocate_recipients = [{"email": lawyer["email"], "name": lawyer["name"]}]
+    
+    email_sent, email_status = send_email_notification(client_recipients, client_subject, client_body)
+    try:
+        send_email_notification(advocate_recipients, advocate_subject, advocate_body)
+    except Exception as e:
+        print(f"Failed to send advocate email notification: {e}")
         
     return {
         "status": "success",
