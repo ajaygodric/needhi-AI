@@ -16,16 +16,16 @@ import {
 const Navigation = ({ activeTab, setActiveTab, language, setLanguage, isOpen, setIsOpen }) => {
   const menuItems = [
     { id: "home", label: { English: "Home", Tamil: "முகப்பு" }, icon: <FaHome /> },
+    { id: "bns", label: { English: "BNS vs IPC Map", Tamil: "BNS vs IPC ஒப்பீடு" }, icon: <FaBalanceScale /> },
     { id: "predictor", label: { English: "Outcome Predictor", Tamil: "வழக்கு கணிப்பு" }, icon: <FaGavel /> },
-    { id: "simplifier", label: { English: "Legal Simplifier", Tamil: "சட்ட மொழியாக்கம்" }, icon: <FaLanguage /> },
     { id: "fir", label: { English: "FIR Draft Wizard", Tamil: "FIR எழுதுபவர்" }, icon: <FaPenNib /> },
     { id: "templates", label: { English: "Document Studio", Tamil: "ஆவணங்கள்" }, icon: <FaFileAlt /> },
-    { id: "limitations", label: { English: "Limitation Checker", Tamil: "காலவரம்பு" }, icon: <FaCalendarCheck /> },
-    { id: "bns", label: { English: "BNS vs IPC Map", Tamil: "BNS vs IPC ஒப்பீடு" }, icon: <FaBalanceScale /> },
-    { id: "rights", label: { English: "Know Your Rights", Tamil: "உரிமைகள்" }, icon: <FaShieldAlt /> },
     { id: "checklist", label: { English: "Filing Checklist", Tamil: "தாக்கல் சரிபார்ப்பு" }, icon: <FaListAlt /> },
-    { id: "case", label: { English: "Case Tracker", Tamil: "வழக்கு கண்காணிப்பு" }, icon: <FaSearch /> },
+    { id: "simplifier", label: { English: "Legal Simplifier", Tamil: "சட்ட மொழியாக்கம்" }, icon: <FaLanguage /> },
+    { id: "limitations", label: { English: "Limitation Checker", Tamil: "காலவரம்பு" }, icon: <FaCalendarCheck /> },
+    { id: "rights", label: { English: "Know Your Rights", Tamil: "உரிமைகள்" }, icon: <FaShieldAlt /> },
     { id: "lawyers", label: { English: "Book Lawyer", Tamil: "வழக்கறிஞர்கள்" }, icon: <FaCalendarAlt /> },
+    { id: "case", label: { English: "Case Tracker", Tamil: "வழக்கு கண்காணிப்பு" }, icon: <FaSearch /> },
     { id: "about", label: { English: "About & Helplines", Tamil: "உதவி எண்கள்" }, icon: <FaInfoCircle /> },
   ];
 
