@@ -58,86 +58,92 @@ def load_secrets_toml() -> dict:
         return {}
 
 # --- SQLite Database Setup ---
+_db_initialized = False
+
 def init_db():
+    global _db_initialized
+    if _db_initialized:
+        return
+        
     conn = sqlite3.connect(DATABASE_FILE)
-    cursor = conn.cursor()
-    
-    # Create cases table
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS cases (
-        cnr TEXT PRIMARY KEY,
-        case_no TEXT NOT NULL,
-        title TEXT NOT NULL,
-        petitioner TEXT NOT NULL,
-        respondent TEXT NOT NULL,
-        petitioner_adv TEXT,
-        respondent_adv TEXT,
-        raw_json TEXT NOT NULL
-    )
-    """)
-    
-    # Create lawyers table
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS lawyers (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        specialization TEXT NOT NULL,
-        city TEXT NOT NULL,
-        raw_json TEXT NOT NULL
-    )
-    """)
-    
-    # Create bookings table
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS bookings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        lawyer_id TEXT NOT NULL,
-        lawyer_name TEXT NOT NULL,
-        lawyer_specialty TEXT NOT NULL,
-        booking_date TEXT NOT NULL,
-        booking_slot TEXT NOT NULL,
-        client_name TEXT NOT NULL,
-        client_email TEXT NOT NULL,
-        client_phone TEXT NOT NULL,
-        client_grievance TEXT NOT NULL,
-        booking_code TEXT NOT NULL,
-        status TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        timestamp TEXT NOT NULL
-    )
-    """)
-    
-    # Create subscriptions table
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS subscriptions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        cnr TEXT NOT NULL,
-        email TEXT NOT NULL,
-        client_name TEXT NOT NULL,
-        language TEXT NOT NULL,
-        verification_token TEXT,
-        verified INTEGER NOT NULL,
-        subscribed_at TEXT NOT NULL,
-        timestamp TEXT NOT NULL
-    )
-    """)
-    
-    # Create rate_limits table
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS rate_limits (
-        ip TEXT NOT NULL,
-        endpoint TEXT NOT NULL,
-        timestamp REAL NOT NULL
-    )
-    """)
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_rate_limits ON rate_limits (ip, endpoint, timestamp)")
-    
-    # Migration from cases.json
-    cursor.execute("SELECT COUNT(*) FROM cases")
-    if cursor.fetchone()[0] == 0:
-        cases_path = os.path.join(STATIC_DATA_DIR, "cases.json")
-        if os.path.exists(cases_path):
-            try:
+    try:
+        cursor = conn.cursor()
+        
+        # Create cases table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS cases (
+            cnr TEXT PRIMARY KEY,
+            case_no TEXT NOT NULL,
+            title TEXT NOT NULL,
+            petitioner TEXT NOT NULL,
+            respondent TEXT NOT NULL,
+            petitioner_adv TEXT,
+            respondent_adv TEXT,
+            raw_json TEXT NOT NULL
+        )
+        """)
+        
+        # Create lawyers table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS lawyers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            specialization TEXT NOT NULL,
+            city TEXT NOT NULL,
+            raw_json TEXT NOT NULL
+        )
+        """)
+        
+        # Create bookings table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bookings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lawyer_id TEXT NOT NULL,
+            lawyer_name TEXT NOT NULL,
+            lawyer_specialty TEXT NOT NULL,
+            booking_date TEXT NOT NULL,
+            booking_slot TEXT NOT NULL,
+            client_name TEXT NOT NULL,
+            client_email TEXT NOT NULL,
+            client_phone TEXT NOT NULL,
+            client_grievance TEXT NOT NULL,
+            booking_code TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            timestamp TEXT NOT NULL
+        )
+        """)
+        
+        # Create subscriptions table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS subscriptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cnr TEXT NOT NULL,
+            email TEXT NOT NULL,
+            client_name TEXT NOT NULL,
+            language TEXT NOT NULL,
+            verification_token TEXT,
+            verified INTEGER NOT NULL,
+            subscribed_at TEXT NOT NULL,
+            timestamp TEXT NOT NULL
+        )
+        """)
+        
+        # Create rate_limits table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS rate_limits (
+            ip TEXT NOT NULL,
+            endpoint TEXT NOT NULL,
+            timestamp REAL NOT NULL
+        )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_rate_limits ON rate_limits (ip, endpoint, timestamp)")
+        
+        # Migration from cases.json
+        cursor.execute("SELECT COUNT(*) FROM cases")
+        if cursor.fetchone()[0] == 0:
+            cases_path = os.path.join(STATIC_DATA_DIR, "cases.json")
+            if os.path.exists(cases_path):
                 with open(cases_path, "r", encoding="utf-8") as f:
                     cases = json.load(f)
                     for c in cases:
@@ -149,15 +155,12 @@ def init_db():
                             c.get("petitioner_adv", ""), c.get("respondent_adv", ""), json.dumps(c, ensure_ascii=False)
                         ))
                 logger.info("Migrated cases.json to SQLite database successfully.")
-            except Exception as e:
-                logger.exception("Failed to migrate cases.json to SQLite")
-                
-    # Migration from lawyers.json
-    cursor.execute("SELECT COUNT(*) FROM lawyers")
-    if cursor.fetchone()[0] == 0:
-        lawyers_path = os.path.join(STATIC_DATA_DIR, "lawyers.json")
-        if os.path.exists(lawyers_path):
-            try:
+                    
+        # Migration from lawyers.json
+        cursor.execute("SELECT COUNT(*) FROM lawyers")
+        if cursor.fetchone()[0] == 0:
+            lawyers_path = os.path.join(STATIC_DATA_DIR, "lawyers.json")
+            if os.path.exists(lawyers_path):
                 with open(lawyers_path, "r", encoding="utf-8") as f:
                     lawyers = json.load(f)
                     for l in lawyers:
@@ -169,15 +172,12 @@ def init_db():
                             json.dumps(l, ensure_ascii=False)
                         ))
                 logger.info("Migrated lawyers.json to SQLite database successfully.")
-            except Exception as e:
-                logger.exception("Failed to migrate lawyers.json to SQLite")
-                
-    # Migration from bookings.json
-    cursor.execute("SELECT COUNT(*) FROM bookings")
-    if cursor.fetchone()[0] == 0:
-        bookings_path = os.path.join(STATIC_DATA_DIR, "bookings.json")
-        if os.path.exists(bookings_path):
-            try:
+                    
+        # Migration from bookings.json
+        cursor.execute("SELECT COUNT(*) FROM bookings")
+        if cursor.fetchone()[0] == 0:
+            bookings_path = os.path.join(STATIC_DATA_DIR, "bookings.json")
+            if os.path.exists(bookings_path):
                 with open(bookings_path, "r", encoding="utf-8") as f:
                     bookings = json.load(f)
                     for b in bookings:
@@ -191,15 +191,12 @@ def init_db():
                             b.get("timestamp", datetime.now().isoformat()), b.get("timestamp", datetime.now().isoformat())
                         ))
                 logger.info("Migrated bookings.json to SQLite database successfully.")
-            except Exception as e:
-                logger.exception("Failed to migrate bookings.json to SQLite")
-                
-    # Migration from subscriptions.json
-    cursor.execute("SELECT COUNT(*) FROM subscriptions")
-    if cursor.fetchone()[0] == 0:
-        subscriptions_path = os.path.join(STATIC_DATA_DIR, "subscriptions.json")
-        if os.path.exists(subscriptions_path):
-            try:
+                    
+        # Migration from subscriptions.json
+        cursor.execute("SELECT COUNT(*) FROM subscriptions")
+        if cursor.fetchone()[0] == 0:
+            subscriptions_path = os.path.join(STATIC_DATA_DIR, "subscriptions.json")
+            if os.path.exists(subscriptions_path):
                 with open(subscriptions_path, "r", encoding="utf-8") as f:
                     subs = json.load(f)
                     for s in subs:
@@ -212,11 +209,15 @@ def init_db():
                             s.get("subscribed_at", datetime.now().isoformat()), s.get("timestamp", datetime.now().isoformat())
                         ))
                 logger.info("Migrated subscriptions.json to SQLite database successfully.")
-            except Exception as e:
-                logger.exception("Failed to migrate subscriptions.json to SQLite")
-                
-    conn.commit()
-    conn.close()
+                    
+        conn.commit()
+        _db_initialized = True
+    except Exception as e:
+        conn.rollback()
+        logger.exception("Database initialization failed. Rolled back all changes.")
+        raise e
+    finally:
+        conn.close()
 
 # --- PII Encryption Helpers ---
 # Secure default Fernet key for local development fallback
@@ -298,10 +299,32 @@ def purge_old_records_db(days: int = 90):
         logger.error(f"Failed to purge old records from SQLite: {e}")
 
 # --- SQLite-Backed sliding window Rate Limiter ---
+import threading
+BACKUP_LIMITS = defaultdict(list)
+BACKUP_LIMITS_LOCK = threading.Lock()
+
+def check_backup_rate_limit(client_ip: str, endpoint: str, limit: int, window: int) -> bool:
+    """
+    In-memory fallback rate limiter to ensure rate limit checks are enforced
+    even if the database encounters an error.
+    """
+    now = time.time()
+    with BACKUP_LIMITS_LOCK:
+        timestamps = BACKUP_LIMITS[(client_ip, endpoint)]
+        # Filter timestamps outside the window
+        timestamps = [t for t in timestamps if now - t < window]
+        if len(timestamps) >= limit:
+            BACKUP_LIMITS[(client_ip, endpoint)] = timestamps
+            return False
+        timestamps.append(now)
+        BACKUP_LIMITS[(client_ip, endpoint)] = timestamps
+        return True
+
 def check_db_rate_limit(client_ip: str, endpoint: str, limit: int, window: int) -> bool:
     """
     Checks if a client IP is allowed to access an endpoint based on rate limit.
     Uses SQLite database to share limits across multiple workers/processes.
+    Falls back to a secure in-memory limiter on database connection/write errors.
     """
     now = time.time()
     cutoff = now - window
@@ -326,9 +349,9 @@ def check_db_rate_limit(client_ip: str, endpoint: str, limit: int, window: int) 
         conn.close()
         return True
     except Exception as e:
-        logger.error(f"Error checking rate limits in SQLite: {e}")
-        # Fail open under database errors so users aren't locked out of the app
-        return True
+        logger.error(f"Error checking rate limits in SQLite: {e}. Falling back to in-memory rate limiter.")
+        # Fall back to secure in-memory sliding window rate limiter
+        return check_backup_rate_limit(client_ip, endpoint, limit, window)
 
 def check_rate_limit_ai(request: Request):
     client_ip = request.client.host if request.client else "unknown"
