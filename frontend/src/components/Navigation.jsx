@@ -7,7 +7,7 @@ import {
   FaPenNib,
   FaShieldAlt,
   FaInfoCircle,
-  FaBrain,
+  FaGavel,
   FaClipboardList,
   FaBookOpen,
   FaClock
@@ -17,7 +17,7 @@ const Navigation = ({ activeTab, setActiveTab, language, setLanguage, isOpen, se
   const menuItems = [
     { id: "home", label: { English: "Home", Tamil: "முகப்பு" }, icon: <FaHome /> },
     { id: "bns", label: { English: "BNS vs IPC Map", Tamil: "BNS vs IPC வரைபடம்" }, icon: <FaBalanceScale /> },
-    { id: "predictor", label: { English: "Outcome Predictor", Tamil: "முடிவு கணிப்பாளர்" }, icon: <FaBrain /> },
+    { id: "predictor", label: { English: "Outcome Predictor", Tamil: "முடிவு கணிப்பாளர்" }, icon: <FaGavel /> },
     { id: "fir", label: { English: "FIR Draft Wizard", Tamil: "FIR வரைவு வழிகாட்டி" }, icon: <FaPenNib /> },
     { id: "templates", label: { English: "Document Studio", Tamil: "ஆவண ஸ்டுடியோ" }, icon: <FaFileAlt /> },
     { id: "checklist", label: { English: "Filing Checklist", Tamil: "தாக்கல் சரிபார்ப்பு" }, icon: <FaClipboardList /> },
