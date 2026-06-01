@@ -171,6 +171,22 @@ const CaseTracker = ({ language }) => {
         <h2 className="section-title">
           {language === "Tamil" ? "வழக்கு கண்காணிப்பகம் (eCourts)" : "eCourts Case Status Tracker"}
         </h2>
+        <div style={{ margin: "6px 0 12px 0" }}>
+          <span style={{ 
+            display: "inline-block", 
+            background: "rgba(201, 168, 76, 0.12)", 
+            color: "var(--accent-gold-light)", 
+            border: "1px solid rgba(201, 168, 76, 0.3)", 
+            padding: "4px 10px", 
+            borderRadius: "6px", 
+            fontSize: "0.78rem", 
+            fontWeight: "600",
+            textTransform: "uppercase",
+            letterSpacing: "0.5px"
+          }}>
+            ⚠️ {language === "Tamil" ? "அமைப்பு கட்டுமானத்தில் உள்ளது (டெமோ தரவு)" : "System Under Construction (Running on Sandbox Demo Data)"}
+          </span>
+        </div>
         <p className="section-subtitle">
           {language === "Tamil"
             ? "வழக்கு எண், சி.என்.ஆர் (CNR) எண், அல்லது வழக்கறிஞர் பெயரைப் பயன்படுத்தி உங்கள் வழக்குகளைக் கண்காணிக்கலாம்."
