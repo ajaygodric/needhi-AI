@@ -12,6 +12,14 @@ services:
         sync: false # Optional: Tertiary Gemini API Key
       - key: GEMINI_API_KEY_4
         sync: false # Optional: Quaternary Gemini API Key
+      - key: GEMINI_API_KEY_5
+        sync: false # Optional: Quinary Gemini API Key
+      - key: GEMINI_API_KEY_6
+        sync: false # Optional: Senary Gemini API Key
+      - key: BREVO_API_KEY
+        sync: false # Optional: Brevo API Key for email notifications
+      - key: EMAIL_FROM
+        sync: false # Optional: Sender email address
       - key: SMTP_HOST
         sync: false # Optional: Enter SMTP host for email notifications
       - key: SMTP_PORT
