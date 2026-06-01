@@ -6,6 +6,7 @@ import urllib.request
 import re as _re
 import time
 import logging
+import sqlite3
 from collections import defaultdict
 from datetime import datetime, timedelta, date
 from typing import List, Optional
@@ -35,6 +36,7 @@ except ImportError:
 # Root paths
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT_DIR, "backend", "data")
+DATABASE_FILE = os.path.join(DATA_DIR, "needhi.db")
 
 def load_secrets_toml() -> dict:
     secrets_path = os.path.join(ROOT_DIR, ".streamlit", "secrets.toml")
@@ -47,47 +49,156 @@ def load_secrets_toml() -> dict:
         logger.exception("Error reading secrets.toml")
         return {}
 
-# --- Atomic File Locking Manager ---
-class FileLock:
-    def __init__(self, lock_name: str, timeout: int = 5):
-        self.lock_path = os.path.join(ROOT_DIR, "backend", f"{lock_name}.lock")
-        self.timeout = timeout
-        self.locked = False
-        
-    def __enter__(self):
-        start_time = time.time()
-        while time.time() - start_time < self.timeout:
+# --- SQLite Database Setup ---
+def init_db():
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    # Create cases table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS cases (
+        cnr TEXT PRIMARY KEY,
+        case_no TEXT NOT NULL,
+        title TEXT NOT NULL,
+        petitioner TEXT NOT NULL,
+        respondent TEXT NOT NULL,
+        petitioner_adv TEXT,
+        respondent_adv TEXT,
+        raw_json TEXT NOT NULL
+    )
+    """)
+    
+    # Create lawyers table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS lawyers (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        specialization TEXT NOT NULL,
+        city TEXT NOT NULL,
+        raw_json TEXT NOT NULL
+    )
+    """)
+    
+    # Create bookings table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS bookings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        lawyer_id TEXT NOT NULL,
+        lawyer_name TEXT NOT NULL,
+        lawyer_specialty TEXT NOT NULL,
+        booking_date TEXT NOT NULL,
+        booking_slot TEXT NOT NULL,
+        client_name TEXT NOT NULL,
+        client_email TEXT NOT NULL,
+        client_phone TEXT NOT NULL,
+        client_grievance TEXT NOT NULL,
+        booking_code TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        timestamp TEXT NOT NULL
+    )
+    """)
+    
+    # Create subscriptions table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS subscriptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cnr TEXT NOT NULL,
+        email TEXT NOT NULL,
+        client_name TEXT NOT NULL,
+        language TEXT NOT NULL,
+        verification_token TEXT,
+        verified INTEGER NOT NULL,
+        subscribed_at TEXT NOT NULL,
+        timestamp TEXT NOT NULL
+    )
+    """)
+    
+    # Migration from cases.json
+    cursor.execute("SELECT COUNT(*) FROM cases")
+    if cursor.fetchone()[0] == 0:
+        cases_path = os.path.join(DATA_DIR, "cases.json")
+        if os.path.exists(cases_path):
             try:
-                os.mkdir(self.lock_path)
-                self.locked = True
-                return self
-            except FileExistsError:
-                time.sleep(0.1)
-        raise RuntimeError(f"Timeout waiting for file lock: {self.lock_path}")
-        
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.locked:
+                with open(cases_path, "r", encoding="utf-8") as f:
+                    cases = json.load(f)
+                    for c in cases:
+                        cursor.execute("""
+                        INSERT OR REPLACE INTO cases (cnr, case_no, title, petitioner, respondent, petitioner_adv, respondent_adv, raw_json)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            c["cnr"], c.get("case_no", ""), c["title"], c.get("petitioner", ""), c.get("respondent", ""),
+                            c.get("petitioner_adv", ""), c.get("respondent_adv", ""), json.dumps(c, ensure_ascii=False)
+                        ))
+                logger.info("Migrated cases.json to SQLite database successfully.")
+            except Exception as e:
+                logger.exception("Failed to migrate cases.json to SQLite")
+                
+    # Migration from lawyers.json
+    cursor.execute("SELECT COUNT(*) FROM lawyers")
+    if cursor.fetchone()[0] == 0:
+        lawyers_path = os.path.join(DATA_DIR, "lawyers.json")
+        if os.path.exists(lawyers_path):
             try:
-                os.rmdir(self.lock_path)
-            except Exception:
-                pass
-
-def safe_json_append(filepath: str, new_record: dict, lock_name: str) -> list:
-    """Thread-safe and process-safe read-modify-write for JSON files."""
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    with FileLock(lock_name):
-        records = []
-        if os.path.exists(filepath):
+                with open(lawyers_path, "r", encoding="utf-8") as f:
+                    lawyers = json.load(f)
+                    for l in lawyers:
+                        cursor.execute("""
+                        INSERT OR REPLACE INTO lawyers (id, name, specialization, city, raw_json)
+                        VALUES (?, ?, ?, ?, ?)
+                        """, (
+                            l["id"], l["name"], l["specialization"], l.get("city", l.get("location", "Chennai")),
+                            json.dumps(l, ensure_ascii=False)
+                        ))
+                logger.info("Migrated lawyers.json to SQLite database successfully.")
+            except Exception as e:
+                logger.exception("Failed to migrate lawyers.json to SQLite")
+                
+    # Migration from bookings.json
+    cursor.execute("SELECT COUNT(*) FROM bookings")
+    if cursor.fetchone()[0] == 0:
+        bookings_path = os.path.join(DATA_DIR, "bookings.json")
+        if os.path.exists(bookings_path):
             try:
-                with open(filepath, "r", encoding="utf-8") as f:
-                    content = f.read().strip()
-                    records = json.loads(content) if content else []
-            except Exception:
-                records = []
-        records.append(new_record)
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(records, f, indent=2, ensure_ascii=False)
-        return records
+                with open(bookings_path, "r", encoding="utf-8") as f:
+                    bookings = json.load(f)
+                    for b in bookings:
+                        cursor.execute("""
+                        INSERT INTO bookings (lawyer_id, lawyer_name, lawyer_specialty, booking_date, booking_slot, client_name, client_email, client_phone, client_grievance, booking_code, status, created_at, timestamp)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            str(b["lawyer_id"]), b["lawyer_name"], b["specialization"], b["date"], b["slot"],
+                            b["client_name"], b["client_email"], b["client_phone"], b.get("details", ""),
+                            b.get("code", "ND-DEF"), b.get("status", "Confirmed"),
+                            b.get("timestamp", datetime.now().isoformat()), b.get("timestamp", datetime.now().isoformat())
+                        ))
+                logger.info("Migrated bookings.json to SQLite database successfully.")
+            except Exception as e:
+                logger.exception("Failed to migrate bookings.json to SQLite")
+                
+    # Migration from subscriptions.json
+    cursor.execute("SELECT COUNT(*) FROM subscriptions")
+    if cursor.fetchone()[0] == 0:
+        subscriptions_path = os.path.join(DATA_DIR, "subscriptions.json")
+        if os.path.exists(subscriptions_path):
+            try:
+                with open(subscriptions_path, "r", encoding="utf-8") as f:
+                    subs = json.load(f)
+                    for s in subs:
+                        cursor.execute("""
+                        INSERT INTO subscriptions (cnr, email, client_name, language, verification_token, verified, subscribed_at, timestamp)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            s["cnr"], s["email"], s["client_name"], s["language"], s.get("verification_token"),
+                            1 if s.get("verified", True) else 0,
+                            s.get("subscribed_at", datetime.now().isoformat()), s.get("timestamp", datetime.now().isoformat())
+                        ))
+                logger.info("Migrated subscriptions.json to SQLite database successfully.")
+            except Exception as e:
+                logger.exception("Failed to migrate subscriptions.json to SQLite")
+                
+    conn.commit()
+    conn.close()
 
 # --- PII Encryption Helpers ---
 # Secure default Fernet key for local development fallback
@@ -126,37 +237,26 @@ def decrypt_field(value: str) -> str:
         logger.error(f"Field decryption failed: {e}")
         return value
 
-def purge_old_records(filepath: str, days: int = 90):
-    """Delete records older than `days` days."""
-    if not os.path.exists(filepath):
-        return
-    cutoff = datetime.now() - timedelta(days=days)
+def purge_old_records_db(days: int = 90):
+    """Delete database records older than `days` days."""
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     try:
-        lock_name = os.path.basename(filepath).replace(".json", "")
-        with FileLock(lock_name):
-            with open(filepath, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-                records = json.loads(content) if content else []
-            
-            fresh = []
-            for r in records:
-                ts_str = r.get("timestamp")
-                if ts_str:
-                    try:
-                        ts = datetime.fromisoformat(ts_str)
-                        if ts > cutoff:
-                            fresh.append(r)
-                    except ValueError:
-                        fresh.append(r)
-                else:
-                    fresh.append(r)
-                    
-            if len(fresh) < len(records):
-                with open(filepath, "w", encoding="utf-8") as f:
-                    json.dump(fresh, f, indent=2, ensure_ascii=False)
-                logger.info(f"Purged {len(records) - len(fresh)} expired records from {filepath}")
+        conn = sqlite3.connect(DATABASE_FILE)
+        cursor = conn.cursor()
+        
+        cursor.execute("DELETE FROM bookings WHERE timestamp < ?", (cutoff,))
+        purged_bookings = cursor.rowcount
+        
+        cursor.execute("DELETE FROM subscriptions WHERE timestamp < ?", (cutoff,))
+        purged_subscriptions = cursor.rowcount
+        
+        conn.commit()
+        conn.close()
+        
+        if purged_bookings > 0 or purged_subscriptions > 0:
+            logger.info(f"Purged {purged_bookings} old bookings and {purged_subscriptions} old subscriptions from SQLite database.")
     except Exception as e:
-        logger.error(f"Failed to purge old records from {filepath}: {e}")
+        logger.error(f"Failed to purge old records from SQLite: {e}")
 
 # --- Memory-Based sliding window Rate Limiter ---
 class SlidingWindowRateLimiter:
@@ -847,76 +947,55 @@ def subscribe_to_case(req: CaseSubscribeRequest, request: Request):
     if not cnr or not email or not client_name:
         raise HTTPException(status_code=400, detail="Missing required subscription fields")
         
-    # Check if case exists to get the details
-    cases_path = os.path.join(DATA_DIR, "cases.json")
-    case_details = None
-    if os.path.exists(cases_path):
-        try:
-            with open(cases_path, "r", encoding="utf-8") as f:
-                cases = json.load(f)
-            for c in cases:
-                if c["cnr"].lower() == cnr.lower():
-                    case_details = c
-                    break
-        except Exception as e:
-            logger.exception("Failed to read cases database")
-            raise HTTPException(status_code=500, detail="Internal database error.")
-            
-    if not case_details:
+    # Check if case exists to get the details from SQLite
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT raw_json FROM cases WHERE LOWER(cnr) = ?", (cnr.lower(),))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
         raise HTTPException(status_code=404, detail="Case with this CNR number not found")
         
-    # Save subscription (pending verification)
-    subscriptions_path = os.path.join(DATA_DIR, "subscriptions.json")
-    verification_token = os.urandom(16).hex()
+    case_details = json.loads(row[0])
     
-    with FileLock("subscriptions"):
-        subscriptions = []
-        if os.path.exists(subscriptions_path):
-            try:
-                with open(subscriptions_path, "r", encoding="utf-8") as f:
-                    subscriptions = json.load(f)
-            except Exception:
-                subscriptions = []
-                
-        # Check if already subscribed and verified
-        already_subscribed = False
-        for sub in subscriptions:
-            dec_email = decrypt_field(sub.get("email", ""))
-            if sub.get("cnr", "").lower() == cnr.lower() and dec_email.lower() == email:
-                if sub.get("verified", True):
-                    already_subscribed = True
-                break
-                
-        if already_subscribed:
-            return {
-                "status": "already_subscribed",
-                "message": "You are already subscribed to this case."
-            }
+    # Check if already subscribed and verified in SQLite
+    cursor.execute("SELECT email, verified FROM subscriptions WHERE LOWER(cnr) = ?", (cnr.lower(),))
+    rows = cursor.fetchall()
+    already_subscribed = False
+    for enc_email, verified in rows:
+        dec_email = decrypt_field(enc_email)
+        if dec_email.lower() == email and verified == 1:
+            already_subscribed = True
+            break
             
-        # Add or update subscription as pending
-        subscriptions = [
-            sub for sub in subscriptions
-            if not (sub.get("cnr", "").lower() == cnr.lower() and decrypt_field(sub.get("email", "")).lower() == email)
-        ]
+    if already_subscribed:
+        conn.close()
+        return {
+            "status": "already_subscribed",
+            "message": "You are already subscribed to this case."
+        }
         
-        subscriptions.append({
-            "cnr": cnr,
-            "email": encrypt_field(email),
-            "client_name": encrypt_field(client_name),
-            "language": language,
-            "verification_token": verification_token,
-            "verified": False,
-            "subscribed_at": datetime.now().isoformat(),
-            "timestamp": datetime.now().isoformat()
-        })
-        
-        try:
-            with open(subscriptions_path, "w", encoding="utf-8") as f:
-                json.dump(subscriptions, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            logger.exception("Failed to save subscription")
-            raise HTTPException(status_code=500, detail="Failed to save subscription due to database error.")
+    # Delete any pending subscriptions for this cnr + email to avoid duplicate rows
+    cursor.execute("SELECT id, email FROM subscriptions WHERE LOWER(cnr) = ?", (cnr.lower(),))
+    all_subs = cursor.fetchall()
+    for sub_id, enc_email in all_subs:
+        if decrypt_field(enc_email).lower() == email:
+            cursor.execute("DELETE FROM subscriptions WHERE id = ?", (sub_id,))
             
+    verification_token = os.urandom(16).hex()
+    now_str = datetime.now().isoformat()
+    
+    cursor.execute("""
+    INSERT INTO subscriptions (cnr, email, client_name, language, verification_token, verified, subscribed_at, timestamp)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        cnr, encrypt_field(email), encrypt_field(client_name), language,
+        verification_token, 0, now_str, now_str
+    ))
+    
+    conn.commit()
+    conn.close()
+    
     # Send verification email containing verification link
     confirm_url = f"{request.base_url}api/cases/confirm-subscription?token={verification_token}"
     
@@ -964,34 +1043,15 @@ def confirm_subscription(token: str):
     if not token:
         raise HTTPException(status_code=400, detail="Token is missing.")
         
-    subscriptions_path = os.path.join(DATA_DIR, "subscriptions.json")
-    if not os.path.exists(subscriptions_path):
-        raise HTTPException(status_code=404, detail="No subscriptions found.")
-        
-    found_sub = None
-    with FileLock("subscriptions"):
-        try:
-            with open(subscriptions_path, "r", encoding="utf-8") as f:
-                subscriptions = json.load(f)
-        except Exception:
-            subscriptions = []
-            
-        for sub in subscriptions:
-            if sub.get("verification_token") == token:
-                sub["verified"] = True
-                sub["verification_token"] = None
-                found_sub = sub
-                break
-                
-        if found_sub:
-            try:
-                with open(subscriptions_path, "w", encoding="utf-8") as f:
-                    json.dump(subscriptions, f, indent=2, ensure_ascii=False)
-            except Exception as e:
-                logger.exception("Failed to update subscription status")
-                raise HTTPException(status_code=500, detail="Internal server error.")
-                
-    if not found_sub:
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    # Find pending subscription with this token
+    cursor.execute("SELECT id, cnr, email, client_name, language FROM subscriptions WHERE verification_token = ? AND verified = 0", (token,))
+    row = cursor.fetchone()
+    
+    if not row:
+        conn.close()
         return Response(content="""
         <html>
         <head>
@@ -1011,25 +1071,22 @@ def confirm_subscription(token: str):
         </html>
         """, media_type="text/html")
         
-    cnr = found_sub.get("cnr")
-    email = decrypt_field(found_sub.get("email"))
-    client_name = decrypt_field(found_sub.get("client_name"))
-    language = found_sub.get("language")
+    sub_id, cnr, enc_email, enc_client_name, language = row
     
-    # Load case details
-    cases_path = os.path.join(DATA_DIR, "cases.json")
-    case_details = None
-    if os.path.exists(cases_path):
-        try:
-            with open(cases_path, "r", encoding="utf-8") as f:
-                cases = json.load(f)
-            for c in cases:
-                if c["cnr"].lower() == cnr.lower():
-                    case_details = c
-                    break
-        except Exception:
-            pass
-            
+    # Update subscription to verified
+    cursor.execute("UPDATE subscriptions SET verified = 1, verification_token = NULL WHERE id = ?", (sub_id,))
+    conn.commit()
+    
+    # Get case details
+    cursor.execute("SELECT raw_json FROM cases WHERE LOWER(cnr) = ?", (cnr.lower(),))
+    case_row = cursor.fetchone()
+    case_details = json.loads(case_row[0]) if case_row else None
+    
+    conn.close()
+    
+    email = decrypt_field(enc_email)
+    client_name = decrypt_field(enc_client_name)
+    
     if case_details:
         case_title = case_details.get("title", cnr)
         case_title_tamil = case_details.get("tamil_title", case_title)
@@ -1094,63 +1151,66 @@ Needhi AI Legal Suite.
 
 @app.get("/api/cases")
 def get_cases(search: str = "", search_type: str = "CNR Number"):
-    cases_path = os.path.join(DATA_DIR, "cases.json")
-    if not os.path.exists(cases_path):
-        return []
-        
-    with open(cases_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-        
-    search = search.strip().lower()
-    if not search:
-        return data
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    search_clean = search.strip().lower()
+    if not search_clean:
+        cursor.execute("SELECT raw_json FROM cases")
+        rows = cursor.fetchall()
+        conn.close()
+        return [json.loads(row[0]) for row in rows]
         
     results = []
-    for case in data:
-        if search_type == "CNR Number" and search in case["cnr"].lower():
-            results.append(case)
-        elif search_type == "Party Name" and (search in case["petitioner"].lower() or search in case["respondent"].lower()):
-            results.append(case)
-        elif search_type == "FIR Number" and search in case["case_no"].lower():
-            results.append(case)
-        elif search_type == "Advocate Name" and (search in case["petitioner_adv"].lower() or search in case["respondent_adv"].lower()):
-            results.append(case)
-            
-    return results
+    # Query database using SQL filters
+    if search_type == "CNR Number":
+        cursor.execute("SELECT raw_json FROM cases WHERE LOWER(cnr) LIKE ?", (f"%{search_clean}%",))
+    elif search_type == "Party Name":
+        cursor.execute("SELECT raw_json FROM cases WHERE LOWER(petitioner) LIKE ? OR LOWER(respondent) LIKE ?", (f"%{search_clean}%", f"%{search_clean}%"))
+    elif search_type == "FIR Number":
+        cursor.execute("SELECT raw_json FROM cases WHERE LOWER(case_no) LIKE ?", (f"%{search_clean}%",))
+    elif search_type == "Advocate Name":
+        cursor.execute("SELECT raw_json FROM cases WHERE LOWER(petitioner_adv) LIKE ? OR LOWER(respondent_adv) LIKE ?", (f"%{search_clean}%", f"%{search_clean}%"))
+    else:
+        cursor.execute("SELECT raw_json FROM cases")
+        
+    rows = cursor.fetchall()
+    conn.close()
+    
+    return [json.loads(row[0]) for row in rows]
 
 @app.get("/api/lawyers")
 def get_lawyers(specialization: str = "", city: str = "", search: str = ""):
-    lawyers_path = os.path.join(DATA_DIR, "lawyers.json")
-    if not os.path.exists(lawyers_path):
-        return []
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    query = "SELECT raw_json FROM lawyers WHERE 1=1"
+    params = []
+    
+    if specialization:
+        query += " AND LOWER(specialization) LIKE ?"
+        params.append(f"%{specialization.lower()}%")
+    if city:
+        query += " AND LOWER(city) = ?"
+        params.append(city.lower())
         
-    with open(lawyers_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+    
+    data = [json.loads(row[0]) for row in rows]
+    
+    if search:
+        search_lower = search.lower()
+        results = []
+        for lawyer in data:
+            if (search_lower in lawyer["name"].lower() or
+                search_lower in lawyer.get("bio", "").lower() or
+                search_lower in lawyer["specialization"].lower()):
+                results.append(lawyer)
+        return results
         
-    results = []
-    for lawyer in data:
-        # Specialization filter
-        if specialization and specialization.lower() not in lawyer["specialization"].lower():
-            continue
-            
-        # City filter
-        if city and city.lower() != lawyer["city"].lower():
-            continue
-            
-        # Text search
-        if search:
-            search = search.lower()
-            match = (
-                search in lawyer["name"].lower() or
-                search in lawyer["bio"].lower() or
-                search in lawyer["specialization"].lower()
-            )
-            if not match:
-                continue
-                
-        results.append(lawyer)
-        
-    return results
+    return data
 
 @app.post("/api/book-lawyer", dependencies=[Depends(check_rate_limit_data)])
 def book_lawyer(req: BookLawyerRequest):
@@ -1162,60 +1222,40 @@ def book_lawyer(req: BookLawyerRequest):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Expected YYYY-MM-DD.")
 
-    # Load lawyers to validate ID and get details
-    lawyers_path = os.path.join(DATA_DIR, "lawyers.json")
-    if not os.path.exists(lawyers_path):
-        raise HTTPException(status_code=500, detail="Lawyers database not found")
-        
-    with open(lawyers_path, "r", encoding="utf-8") as f:
-        lawyers = json.load(f)
-        
-    lawyer = None
-    for l in lawyers:
-        if l["id"] == req.lawyer_id:
-            lawyer = l
-            break
-            
-    if not lawyer:
+    # Load lawyers to validate ID and get details from SQLite
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT raw_json FROM lawyers WHERE id = ?", (req.lawyer_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
         raise HTTPException(status_code=404, detail="Lawyer not found")
         
+    lawyer = json.loads(row[0])
+    
     # Generate booking code
     booking_code = "ND-" + os.urandom(3).hex().upper()
     
-    # Save booking to bookings.json under thread-safe lock with encrypted PII
-    bookings_path = os.path.join(DATA_DIR, "bookings.json")
-    with FileLock("bookings"):
-        bookings = []
-        if os.path.exists(bookings_path):
-            try:
-                with open(bookings_path, "r", encoding="utf-8") as f:
-                    bookings = json.load(f)
-            except Exception:
-                bookings = []
-                
-        new_booking = {
-            "code": booking_code,
-            "lawyer_id": req.lawyer_id,
-            "lawyer_name": lawyer["name"],
-            "specialization": lawyer["specialization"],
-            "client_name": encrypt_field(req.client_name),
-            "client_email": encrypt_field(req.client_email),
-            "client_phone": encrypt_field(req.client_phone),
-            "date": req.date,
-            "slot": req.slot,
-            "details": encrypt_field(req.details),
-            "timestamp": datetime.now().isoformat()
-        }
+    # Save booking to SQLite with encrypted PII
+    now_str = datetime.now().isoformat()
+    try:
+        cursor.execute("""
+        INSERT INTO bookings (lawyer_id, lawyer_name, lawyer_specialty, booking_date, booking_slot, client_name, client_email, client_phone, client_grievance, booking_code, status, created_at, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            req.lawyer_id, lawyer["name"], lawyer["specialization"], req.date, req.slot,
+            encrypt_field(req.client_name), encrypt_field(req.client_email),
+            encrypt_field(req.client_phone), encrypt_field(req.details),
+            booking_code, "Confirmed", now_str, now_str
+        ))
+        conn.commit()
+    except Exception as e:
+        logger.exception("Failed to save booking to SQLite")
+        conn.close()
+        raise HTTPException(status_code=500, detail="Failed to save booking due to database error.")
         
-        bookings.append(new_booking)
-        
-        try:
-            with open(bookings_path, "w", encoding="utf-8") as f:
-                json.dump(bookings, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            logger.exception("Failed to save booking")
-            raise HTTPException(status_code=500, detail="Failed to save booking due to database error.")
-        
+    conn.close()
+    
     # Construct Client Email Content
     client_subject = f"Needhi AI: Legal Consultation Ticket - {booking_code}"
     client_body = f"""Dear {req.client_name},
@@ -1786,10 +1826,8 @@ Provide a clear, beautiful, and structured plain-language translation under the 
 
 @app.on_event("startup")
 def startup_event():
-    bookings_path = os.path.join(DATA_DIR, "bookings.json")
-    subscriptions_path = os.path.join(DATA_DIR, "subscriptions.json")
-    purge_old_records(bookings_path, days=90)
-    purge_old_records(subscriptions_path, days=90)
+    init_db()
+    purge_old_records_db(days=90)
 
 # Serve React static files in production if dist exists
 dist_path = os.path.join(ROOT_DIR, "frontend", "dist")
