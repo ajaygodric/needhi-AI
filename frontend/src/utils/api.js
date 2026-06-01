@@ -154,13 +154,13 @@ export const searchLawyers = async (specialization = "", city = "", search = "")
 /**
  * Generates an FIR draft.
  */
-export const generateFir = async (issue, state, ps, name) => {
+export const generateFir = async (issue, state, ps, name, category = null, categoryFields = null) => {
   const response = await fetch(getApiUrl("/api/generate-fir"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ issue, state, ps, name }),
+    body: JSON.stringify({ issue, state, ps, name, category, category_fields: categoryFields }),
   });
 
   if (!response.ok) {
@@ -236,6 +236,89 @@ export const bookLawyer = async (bookingData) => {
   if (!response.ok) {
     const err = await response.json();
     throw new Error(err.detail || "Failed to confirm lawyer booking");
+  }
+
+  return response.json();
+};
+
+/**
+ * Sends a query to chat about an uploaded document and handles the streaming response.
+ */
+export const chatWithDocument = async (docText, query, language, history, onChunk, onDone, onError) => {
+  try {
+    const response = await fetch(getApiUrl("/api/chat-doc"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ doc_text: docText, query, language, history }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let done = false;
+    let fullText = "";
+
+    while (!done) {
+      const { value, done: readerDone } = await reader.read();
+      done = readerDone;
+      if (value) {
+        const chunk = decoder.decode(value, { stream: !done });
+        fullText += chunk;
+        onChunk(chunk, fullText);
+      }
+    }
+    onDone(fullText);
+  } catch (error) {
+    console.error("Document Chat error:", error);
+    onError(error);
+  }
+};
+
+/**
+ * Queries Gemini for a case outcome prediction.
+ */
+export const predictCaseOutcome = async (offense, narrative, evidence, priorRecord, jurisdiction, language) => {
+  const response = await fetch(getApiUrl("/api/predict-outcome"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      offense,
+      narrative,
+      evidence,
+      prior_record: priorRecord,
+      jurisdiction,
+      language
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to predict case outcome");
+  }
+
+  return response.json();
+};
+
+/**
+ * Simplifies a pasted legal text snippet.
+ */
+export const simplifyLegalText = async (text, targetLanguage) => {
+  const response = await fetch(getApiUrl("/api/simplify-text"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text, target_language: targetLanguage }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to simplify legal text");
   }
 
   return response.json();

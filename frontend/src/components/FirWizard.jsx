@@ -19,6 +19,15 @@ const FirWizard = ({ language }) => {
 
   // Step 3: Incident Details
   const [incidentDetails, setIncidentDetails] = useState("");
+  const [firCategory, setFirCategory] = useState("General");
+  const [categoryFields, setCategoryFields] = useState({});
+
+  const handleCategoryFieldChange = (key, value) => {
+    setCategoryFields((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
 
   // Step 4: Accused & Witness
   const [accusedDetails, setAccusedDetails] = useState("");
@@ -52,9 +61,19 @@ const FirWizard = ({ language }) => {
     setIsGenerating(true);
     setGeneratedDraft("");
 
+    // Build category description block for narrative
+    let categoryNarrative = "";
+    if (firCategory !== "General") {
+      categoryNarrative = `Incident Category: ${firCategory}\nCategory-specific details:\n` + 
+        Object.entries(categoryFields)
+          .filter(([_, v]) => v)
+          .map(([k, v]) => ` - ${k}: ${v}`)
+          .join("\n") + "\n\n";
+    }
+
     // Package incident detailed structure
     const detailedNarrative = `
-Incident details: ${incidentDetails}
+${categoryNarrative}Incident details: ${incidentDetails}
 Accused details: ${accusedDetails || "Unknown accused"}
 Witness details: ${witnessDetails || "No witnesses listed"}
 Incident date & time: ${incidentDate} around ${incidentTime}
@@ -64,7 +83,14 @@ Complainant contact phone: ${complainantPhone}
     `.trim();
 
     try {
-      const res = await generateFir(detailedNarrative, complainantState, policeStation, complainantName);
+      const res = await generateFir(
+        detailedNarrative,
+        complainantState,
+        policeStation,
+        complainantName,
+        firCategory === "General" ? null : firCategory,
+        firCategory === "General" ? null : categoryFields
+      );
       setGeneratedDraft(res.draft);
     } catch (err) {
       console.error(err);
@@ -223,22 +249,244 @@ Complainant contact phone: ${complainantPhone}
             <h3 style={{ fontFamily: "var(--font-serif)", marginBottom: "20px" }}>
               3. {language === "Tamil" ? "சம்பவத்தின் விவரங்கள்" : "Detailed Description (Statement of Facts)"}
             </h3>
+
+            {/* Category Selector */}
+            <div className="input-group" style={{ maxWidth: "400px" }}>
+              <label className="input-label">
+                {language === "Tamil" ? "சம்பவத்தின் வகை" : "Select Incident Category"}
+              </label>
+              <select 
+                className="input-control" 
+                value={firCategory} 
+                onChange={(e) => {
+                  setFirCategory(e.target.value);
+                  setCategoryFields({});
+                }}
+              >
+                <option value="General">{language === "Tamil" ? "பொதுவானவை / பிற" : "General / Other"}</option>
+                <option value="Domestic Violence">{language === "Tamil" ? "குடும்ப வன்முறை (Domestic Violence)" : "Domestic Violence"}</option>
+                <option value="Cyber Fraud">{language === "Tamil" ? "சைபர் மோசடி (Cyber Fraud)" : "Cyber Fraud"}</option>
+                <option value="Property Dispute">{language === "Tamil" ? "சொத்து தகராறு (Property Dispute)" : "Property Dispute"}</option>
+                <option value="Motor Accident">{language === "Tamil" ? "வாகன விபத்து (Motor Accident)" : "Motor Accident"}</option>
+              </select>
+            </div>
+
+            {/* Category Specific Guided Fields */}
+            {firCategory === "Domestic Violence" && (
+              <div className="card" style={{ marginBottom: "20px", background: "rgba(255,255,255,0.01)" }}>
+                <h4 style={{ fontFamily: "var(--font-serif)", marginBottom: "15px", color: "var(--accent-gold)" }}>
+                  {language === "Tamil" ? "குடும்ப வன்முறை விவரங்கள்" : "Domestic Violence Guided Details"}
+                </h4>
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "எதிரியுடனான உறவுமுறை" : "Relationship with Accused"}</label>
+                    <select className="input-control" value={categoryFields.relationship || ""} onChange={(e) => handleCategoryFieldChange("relationship", e.target.value)}>
+                      <option value="">-- Select --</option>
+                      <option value="Husband">{language === "Tamil" ? "கணவர்" : "Husband"}</option>
+                      <option value="Father-in-law">{language === "Tamil" ? "மாமனார்" : "Father-in-law"}</option>
+                      <option value="Mother-in-law">{language === "Tamil" ? "மாமியார்" : "Mother-in-law"}</option>
+                      <option value="Sister-in-law">{language === "Tamil" ? "நாத்தனார் / கணவரின் சகோதரி" : "Sister-in-law"}</option>
+                      <option value="Other Relative">{language === "Tamil" ? "இதர உறவினர்" : "Other Relative"}</option>
+                    </select>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "வன்முறையின் வகை" : "Type of Abuse"}</label>
+                    <select className="input-control" value={categoryFields.abuseType || ""} onChange={(e) => handleCategoryFieldChange("abuseType", e.target.value)}>
+                      <option value="">-- Select --</option>
+                      <option value="Physical & Verbal">{language === "Tamil" ? "உடலளவிலான & வார்த்தை வன்முறை" : "Physical & Verbal"}</option>
+                      <option value="Mental & Emotional">{language === "Tamil" ? "மனதளவிலான & உணர்வுப்பூர்வ வன்முறை" : "Mental & Emotional"}</option>
+                      <option value="Dowry Harassment">{language === "Tamil" ? "வரதட்சணை கொடுமை" : "Dowry Harassment"}</option>
+                      <option value="Economic Deprivation">{language === "Tamil" ? "பொருளாதார உரிமை பறிப்பு" : "Economic Deprivation"}</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "வன்முறையின் அதிர்வெண்" : "Frequency of Abuse"}</label>
+                    <select className="input-control" value={categoryFields.frequency || ""} onChange={(e) => handleCategoryFieldChange("frequency", e.target.value)}>
+                      <option value="">-- Select --</option>
+                      <option value="First Time">{language === "Tamil" ? "முதல் முறை" : "First Time"}</option>
+                      <option value="Occasional">{language === "Tamil" ? "அவ்வப்போது" : "Occasional"}</option>
+                      <option value="Continuous / Chronic">{language === "Tamil" ? "தொடர்ச்சியான கொடுமை" : "Continuous / Chronic"}</option>
+                    </select>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "மருத்துவ பரிசோதனை செய்யப்பட்டுள்ளதா?" : "Medical Exam Conducted?"}</label>
+                    <input type="text" className="input-control" placeholder="e.g. Yes, at Govt Hospital Chennai / G.H. No." value={categoryFields.medicalExam || ""} onChange={(e) => handleCategoryFieldChange("medicalExam", e.target.value)} />
+                  </div>
+                </div>
+                <div className="input-group">
+                  <label className="input-label">{language === "Tamil" ? "வரதட்சணை கோரிக்கைகள் (ஏதேனும் இருப்பின்)" : "Dowry Demands Details (If any)"}</label>
+                  <input type="text" className="input-control" placeholder="e.g. Demanded 10 sovereigns of gold / ₹5 Lakhs cash" value={categoryFields.dowryDetails || ""} onChange={(e) => handleCategoryFieldChange("dowryDetails", e.target.value)} />
+                </div>
+              </div>
+            )}
+
+            {firCategory === "Cyber Fraud" && (
+              <div className="card" style={{ marginBottom: "20px", background: "rgba(255,255,255,0.01)" }}>
+                <h4 style={{ fontFamily: "var(--font-serif)", marginBottom: "15px", color: "var(--accent-gold)" }}>
+                  {language === "Tamil" ? "சைபர் மோசடி விவரங்கள்" : "Cyber Fraud Guided Details"}
+                </h4>
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "இழந்த தொகை (₹)" : "Defrauded Amount (₹)"}</label>
+                    <input type="number" className="input-control" placeholder="e.g. 50000" value={categoryFields.amount || ""} onChange={(e) => handleCategoryFieldChange("amount", e.target.value)} />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "மோசடி நடந்த தேதி & நேரம்" : "Date & Time of Transaction"}</label>
+                    <input type="text" className="input-control" placeholder="e.g. 15th May 2026, 4:30 PM" value={categoryFields.transactionTime || ""} onChange={(e) => handleCategoryFieldChange("transactionTime", e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "பரிவர்த்தனை குறிப்பு எண் (UPI/Txn ID)" : "Transaction Reference / UPI ID"}</label>
+                    <input type="text" className="input-control" placeholder="e.g. UPI Ref: 615283920192" value={categoryFields.txnId || ""} onChange={(e) => handleCategoryFieldChange("txnId", e.target.value)} />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "சந்தேகத்திற்குரிய கணக்கு / எண்" : "Suspect Account / Phone / UPI"}</label>
+                    <input type="text" className="input-control" placeholder="e.g. WhatsApp: +91-9876543210, UPI: scammer@okaxis" value={categoryFields.suspectInfo || ""} onChange={(e) => handleCategoryFieldChange("suspectInfo", e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "மோசடி முறை (Modus Operandi)" : "Modus Operandi"}</label>
+                    <select className="input-control" value={categoryFields.modusOperandi || ""} onChange={(e) => handleCategoryFieldChange("modusOperandi", e.target.value)}>
+                      <option value="">-- Select --</option>
+                      <option value="OTP / KYC Fraud">{language === "Tamil" ? "OTP / KYC மோசடி" : "OTP / KYC Fraud"}</option>
+                      <option value="Phishing Link / Malicious Website">{language === "Tamil" ? "போலி இணையதள லிங்க்" : "Phishing Link / Malicious Website"}</option>
+                      <option value="Part-time Job / Task Scam">{language === "Tamil" ? "பகுதி நேர வேலை மோசடி" : "Part-time Job / Task Scam"}</option>
+                      <option value="Lottery / Prize Scam">{language === "Tamil" ? "பரிசு விழுந்ததாக ஏமாற்றுதல்" : "Lottery / Prize Scam"}</option>
+                      <option value="OLX / Fake Buyer / Seller">{language === "Tamil" ? "OLX / போலி வாங்குபவர் மோசடி" : "OLX / Fake Buyer / Seller"}</option>
+                      <option value="Crypto Investment Scam">{language === "Tamil" ? "கிரிப்டோ முதலீட்டு மோசடி" : "Crypto Investment Scam"}</option>
+                    </select>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "சைபர் செல் புகார் எண் (இருப்பின்)" : "National Cyber Crime Complaint ID"}</label>
+                    <input type="text" className="input-control" placeholder="e.g. 303052600123" value={categoryFields.cyberCellId || ""} onChange={(e) => handleCategoryFieldChange("cyberCellId", e.target.value)} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {firCategory === "Property Dispute" && (
+              <div className="card" style={{ marginBottom: "20px", background: "rgba(255,255,255,0.01)" }}>
+                <h4 style={{ fontFamily: "var(--font-serif)", marginBottom: "15px", color: "var(--accent-gold)" }}>
+                  {language === "Tamil" ? "சொத்து தகராறு விவரங்கள்" : "Property Dispute Guided Details"}
+                </h4>
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "சொத்தின் முகவரி & எல்லைகள்" : "Property Location & Address"}</label>
+                    <input type="text" className="input-control" placeholder="e.g. Survey No. 45/2, Adyar, Chennai" value={categoryFields.propertyLocation || ""} onChange={(e) => handleCategoryFieldChange("propertyLocation", e.target.value)} />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "சர்வே / பட்டா / பத்திரம் எண்" : "Survey / Patta / Document Number"}</label>
+                    <input type="text" className="input-control" placeholder="e.g. Patta No. 1204, Document: 456/2018" value={categoryFields.documentNo || ""} onChange={(e) => handleCategoryFieldChange("documentNo", e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "தகராறின் தன்மை" : "Nature of Dispute"}</label>
+                    <select className="input-control" value={categoryFields.disputeNature || ""} onChange={(e) => handleCategoryFieldChange("disputeNature", e.target.value)}>
+                      <option value="">-- Select --</option>
+                      <option value="Illegal Encroachment">{language === "Tamil" ? "ஆக்கிரமிப்பு" : "Illegal Encroachment"}</option>
+                      <option value="Unauthorized Trespassing">{language === "Tamil" ? "அத்துமீறி நுழைதல்" : "Unauthorized Trespassing"}</option>
+                      <option value="Property Damage / Mischief">{language === "Tamil" ? "சொத்து சேதப்படுத்துதல்" : "Property Damage / Mischief"}</option>
+                      <option value="Forged Land Documents">{language === "Tamil" ? "போலி ஆவணங்கள் தயாரித்தல்" : "Forged Land Documents"}</option>
+                      <option value="Boundary Alteration">{language === "Tamil" ? "எல்லை கல்லை மாற்றுதல்" : "Boundary Alteration"}</option>
+                    </select>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "உரிமை ஆவண வகை" : "Ownership Document Type"}</label>
+                    <select className="input-control" value={categoryFields.ownershipDoc || ""} onChange={(e) => handleCategoryFieldChange("ownershipDoc", e.target.value)}>
+                      <option value="">-- Select --</option>
+                      <option value="Registered Sale Deed">{language === "Tamil" ? "பதிவு செய்யப்பட்ட கிரையப் பத்திரம்" : "Registered Sale Deed"}</option>
+                      <option value="Patta Chitta">{language === "Tamil" ? "பட்டா சிட்டா" : "Patta Chitta"}</option>
+                      <option value="Registered Will">{language === "Tamil" ? "உயில் சாசனம்" : "Registered Will"}</option>
+                      <option value="Gift Deed / Partition Deed">{language === "Tamil" ? "தான செட்டில்மென்ட் / பாகப்பிரிவினை" : "Gift Deed / Partition Deed"}</option>
+                      <option value="Possession/Ancestral Land">{language === "Tamil" ? "பரம்பரை சொத்து / அனுபவ பாத்தியதை" : "Possession/Ancestral Land"}</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "அத்துமீறல் நடந்த தேதி" : "Date of Trespass/Encroachment"}</label>
+                    <input type="text" className="input-control" placeholder="e.g. 10th May 2026" value={categoryFields.disputeDate || ""} onChange={(e) => handleCategoryFieldChange("disputeDate", e.target.value)} />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "சேதம் / இழப்பு விவரங்கள்" : "Details of Damage/Loss (if any)"}</label>
+                    <input type="text" className="input-control" placeholder="e.g. Demolished the compound wall costing ₹50,000" value={categoryFields.damageDetails || ""} onChange={(e) => handleCategoryFieldChange("damageDetails", e.target.value)} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {firCategory === "Motor Accident" && (
+              <div className="card" style={{ marginBottom: "20px", background: "rgba(255,255,255,0.01)" }}>
+                <h4 style={{ fontFamily: "var(--font-serif)", marginBottom: "15px", color: "var(--accent-gold)" }}>
+                  {language === "Tamil" ? "வாகன விபத்து விவரங்கள்" : "Motor Accident Guided Details"}
+                </h4>
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "உங்கள் வாகன எண்" : "Your Vehicle Number"}</label>
+                    <input type="text" className="input-control" placeholder="e.g. TN-07-BY-1234" value={categoryFields.victimVehicle || ""} onChange={(e) => handleCategoryFieldChange("victimVehicle", e.target.value)} />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "விபத்தை ஏற்படுத்திய வாகன எண் & வகை" : "Accused Vehicle Number & Make"}</label>
+                    <input type="text" className="input-control" placeholder="e.g. TN-01-AB-5678 (White Swift Car)" value={categoryFields.accusedVehicle || ""} onChange={(e) => handleCategoryFieldChange("accusedVehicle", e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "காயத்தின் விவரம்" : "Nature of Injury"}</label>
+                    <select className="input-control" value={categoryFields.injuryNature || ""} onChange={(e) => handleCategoryFieldChange("injuryNature", e.target.value)}>
+                      <option value="">-- Select --</option>
+                      <option value="Minor Injuries (abrasions, bruises)">{language === "Tamil" ? "சிறு காயங்கள்" : "Minor Injuries (abrasions, bruises)"}</option>
+                      <option value="Grievous Hurt (fractures, severe cuts)">{language === "Tamil" ? "கொடுங்காயம் / எலும்பு முறிவு" : "Grievous Hurt (fractures, severe cuts)"}</option>
+                      <option value="Fatal Injury / Death occurred">{language === "Tamil" ? "உயிரிழப்பு / மரணம்" : "Fatal Injury / Death occurred"}</option>
+                    </select>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "ஓட்டுநரின் விவரம் (தெரிந்தால்)" : "Driver Details (if known)"}</label>
+                    <input type="text" className="input-control" placeholder="e.g. Drunk, fled the spot, or driver name" value={categoryFields.driverDetails || ""} onChange={(e) => handleCategoryFieldChange("driverDetails", e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "அனுமதிக்கப்பட்ட மருத்துவமனை" : "Hospital Admitted"}</label>
+                    <input type="text" className="input-control" placeholder="e.g. Apollo Hospital, Greams Road / Wound Certificate No." value={categoryFields.hospitalName || ""} onChange={(e) => handleCategoryFieldChange("hospitalName", e.target.value)} />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">{language === "Tamil" ? "அதிவேகம் / கவனக்குறைவு விவரம்" : "Speed / Negligence Description"}</label>
+                    <select className="input-control" value={categoryFields.negligenceType || ""} onChange={(e) => handleCategoryFieldChange("negligenceType", e.target.value)}>
+                      <option value="">-- Select --</option>
+                      <option value="Over-speeding / Rash Driving">{language === "Tamil" ? "அதிவேகம் / அஜாக்கிரதை" : "Over-speeding / Rash Driving"}</option>
+                      <option value="Drunk Driving">{language === "Tamil" ? "மது அருந்திவிட்டு ஓட்டுதல்" : "Drunk Driving"}</option>
+                      <option value="Wrong-side Driving / Lane violation">{language === "Tamil" ? "தவறான பாதையில் ஓட்டுதல்" : "Wrong-side Driving / Lane violation"}</option>
+                      <option value="Jumping Red Light / Negligent Overtaking">{language === "Tamil" ? "சிக்னல் மீறல் / தவறான முந்திச் செல்லல்" : "Jumping Red Light / Negligent Overtaking"}</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* General narrative text box */}
             <div className="input-group">
               <label className="input-label">
                 {language === "Tamil" 
-                  ? "நடந்த சம்பவத்தை விரிவாக விளக்கவும் (என்ன நடந்தது? யார் செய்தது? என்ன பொருட்கள் திருடுபோனது?)"
-                  : "Explain clearly what transpired (who did what, chronological events, items lost, weapons used if any):"}
+                  ? "சம்பவத்தை உங்கள் சொந்த வார்த்தைகளில் விவரிக்கவும் (தேதிகள், சாட்சிகள், என்ன நடந்தது போன்ற முழு தகவல்களுடன்):"
+                  : "Describe the incident in your own words (provide chronological details, actions, and specific events):"}
               </label>
               <textarea
                 rows="6"
                 className="input-control"
                 placeholder={
                   language === "Tamil"
-                    ? "எ.கா. 15 மே மாலை 8 மணிக்கு, இரண்டு அடையாளம் தெரியாத நபர்கள் என் மொபைல் போனை பறித்துவிட்டு தப்பினர்..."
-                    : "e.g. Two unknown bike-borne individuals approached me from behind. The pillion rider snatched my phone (iPhone 14) from my hand and fled towards..."
+                    ? "எ.கா. 15 மே அன்று என்ன நடந்தது என்று கூடுதல் விவரங்களை இங்கே எழுதுங்கள்..."
+                    : "e.g. Detail additional facts of the occurrence here to complete the legal narrative..."
                 }
                 value={incidentDetails}
                 onChange={(e) => setIncidentDetails(e.target.value)}
+                required
               ></textarea>
             </div>
           </div>

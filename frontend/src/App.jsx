@@ -8,6 +8,10 @@ import FirWizard from "./components/FirWizard";
 import DocStudio from "./components/DocStudio";
 import RightsExplorer from "./components/RightsExplorer";
 import AboutContact from "./components/AboutContact";
+import FilingChecklist from "./components/FilingChecklist";
+import CasePredictor from "./components/CasePredictor";
+import LegalSimplifier from "./components/LegalSimplifier";
+import LimitationsChecker from "./components/LimitationsChecker";
 import { FaBars, FaTimes, FaExclamationTriangle, FaShieldAlt, FaUserShield, FaLaptop, FaHeartbeat, FaBalanceScale } from "react-icons/fa";
 import "./App.css";
 
@@ -29,6 +33,14 @@ function App() {
         return <FirWizard language={language} />;
       case "templates":
         return <DocStudio language={language} />;
+      case "predictor":
+        return <CasePredictor language={language} />;
+      case "simplifier":
+        return <LegalSimplifier language={language} />;
+      case "limitations":
+        return <LimitationsChecker language={language} />;
+      case "checklist":
+        return <FilingChecklist language={language} />;
       case "lawyers":
         return <LawyerBooking language={language} />;
       case "case":

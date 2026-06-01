@@ -6,7 +6,11 @@ import {
   FaFileAlt, 
   FaPenNib, 
   FaShieldAlt, 
-  FaInfoCircle
+  FaInfoCircle,
+  FaListAlt,
+  FaGavel,
+  FaLanguage,
+  FaCalendarCheck
 } from "react-icons/fa";
 
 const Navigation = ({ activeTab, setActiveTab, language, setLanguage, isOpen, setIsOpen }) => {
@@ -16,6 +20,10 @@ const Navigation = ({ activeTab, setActiveTab, language, setLanguage, isOpen, se
     { id: "bns", label: { English: "BNS vs IPC Map", Tamil: "BNS vs IPC ஒப்பீடு" }, icon: <FaBalanceScale /> },
     { id: "fir", label: { English: "FIR Draft Wizard", Tamil: "FIR எழுதுபவர்" }, icon: <FaPenNib /> },
     { id: "templates", label: { English: "Document Studio", Tamil: "ஆவணங்கள்" }, icon: <FaFileAlt /> },
+    { id: "predictor", label: { English: "Outcome Predictor", Tamil: "வழக்கு கணிப்பு" }, icon: <FaGavel /> },
+    { id: "simplifier", label: { English: "Legal Simplifier", Tamil: "சட்ட மொழியாக்கம்" }, icon: <FaLanguage /> },
+    { id: "limitations", label: { English: "Limitation Checker", Tamil: "காலவரம்பு" }, icon: <FaCalendarCheck /> },
+    { id: "checklist", label: { English: "Filing Checklist", Tamil: "தாக்கல் சரிபார்ப்பு" }, icon: <FaListAlt /> },
     { id: "lawyers", label: { English: "Book Lawyer", Tamil: "வழக்கறிஞர்கள்" }, icon: <FaCalendarAlt /> },
     { id: "case", label: { English: "Case Tracker", Tamil: "வழக்கு கண்காணிப்பு" }, icon: <FaSearch /> },
     { id: "about", label: { English: "About & Helplines", Tamil: "உதவி எண்கள்" }, icon: <FaInfoCircle /> },

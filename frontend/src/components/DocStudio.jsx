@@ -11,12 +11,17 @@ const DocStudio = ({ language }) => {
   const templates = [
     "Rent Agreement",
     "Legal Notice",
+    "Counter-Notice",
     "Affidavit",
     "Bail Application",
     "Consumer Complaint",
     "Non-Disclosure Agreement (NDA)",
     "Promissory Note",
-    "Power of Attorney"
+    "Power of Attorney",
+    "RTI Application",
+    "Police Commissioner Complaint",
+    "Banking Ombudsman Complaint",
+    "RERA Complaint"
   ];
 
   // Stamp Duty guides for each template
@@ -32,6 +37,12 @@ const DocStudio = ({ language }) => {
       notary: "Not Required.",
       witnesses: "Not Required.",
       note: "Must be sent via Speed Post or Registered Post AD to maintain proof of delivery."
+    },
+    "Counter-Notice": {
+      stamp: "Not Required (Plain paper or Advocate Letterhead)",
+      notary: "Not Required.",
+      witnesses: "Not Required.",
+      note: "Usually sent within 15 to 30 days of receiving the original legal notice."
     },
     "Affidavit": {
       stamp: "₹20 or ₹50 Stamp Paper / E-Stamp",
@@ -68,6 +79,30 @@ const DocStudio = ({ language }) => {
       notary: "Mandatory if dealing with immovable property or court presentation.",
       witnesses: "2 witnesses with ID proofs mandatory.",
       note: "Must be registered at the Sub-Registrar's Office if granting power to sell property."
+    },
+    "RTI Application": {
+      stamp: "₹10 Indian Postal Order (IPO) or Court Fee Stamp",
+      notary: "Not Required.",
+      witnesses: "Not Required.",
+      note: "Filing fee is ₹10. BPL cardholders are exempt from paying any fee."
+    },
+    "Police Commissioner Complaint": {
+      stamp: "Not Required (Plain paper)",
+      notary: "Not Required.",
+      witnesses: "Not Required.",
+      note: "Escalation complaint when local Police Station refuses/fails to register an FIR."
+    },
+    "Banking Ombudsman Complaint": {
+      stamp: "Not Required (Plain paper or RBI CMS portal)",
+      notary: "Not Required.",
+      witnesses: "Not Required.",
+      note: "Submit to RBI Ombudsman if bank does not resolve the complaint within 30 days."
+    },
+    "RERA Complaint": {
+      stamp: "Filing fee (typically ₹1000 - ₹5000 depending on State, paid online)",
+      notary: "Not Required. Self-verification is sufficient.",
+      witnesses: "Not Required during filing.",
+      note: "Filing is done through the respective State RERA portal for delayed possession, refund, or structural defects."
     }
   };
 
@@ -378,6 +413,195 @@ const DocStudio = ({ language }) => {
                   <div className="input-group">
                     <label className="input-label">Specific Powers to Delegate</label>
                     <textarea rows="4" className="input-control" placeholder="Describe the specific actions the attorney is authorized to take..." required value={fields.powers || ""} onChange={(e) => handleFieldChange("powers", e.target.value)}></textarea>
+                  </div>
+                </div>
+              )}
+
+              {templateType === "Counter-Notice" && (
+                <div>
+                  <div className="grid-2">
+                    <div className="input-group">
+                      <label className="input-label">Sender Name (You)</label>
+                      <input type="text" className="input-control" placeholder="e.g. abcd" required value={fields.sender || ""} onChange={(e) => handleFieldChange("sender", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Opposite Party Name</label>
+                      <input type="text" className="input-control" placeholder="e.g. xyz" required value={fields.receiver || ""} onChange={(e) => handleFieldChange("receiver", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Sender Address</label>
+                      <input type="text" className="input-control" placeholder="Sender address" required value={fields.sender_addr || ""} onChange={(e) => handleFieldChange("sender_addr", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Opposite Party Address</label>
+                      <input type="text" className="input-control" placeholder="Opposite party address" required value={fields.receiver_addr || ""} onChange={(e) => handleFieldChange("receiver_addr", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="grid-2">
+                    <div className="input-group">
+                      <label className="input-label">Original Notice Date</label>
+                      <input type="text" className="input-control" placeholder="e.g. 10th May 2026" required value={fields.original_date || ""} onChange={(e) => handleFieldChange("original_date", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Original Notice Subject</label>
+                      <input type="text" className="input-control" placeholder="e.g. Recovery of dues / Breach of contract" required value={fields.original_subject || ""} onChange={(e) => handleFieldChange("original_subject", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Summary of Claims / Allegations in Original Notice</label>
+                    <textarea rows="3" className="input-control" placeholder="Summarize the claims/demands received in the original notice (e.g. demand for payment of ₹50,000 for service default...)" required value={fields.original_claims || ""} onChange={(e) => handleFieldChange("original_claims", e.target.value)}></textarea>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Rebuttal & Defenses (Why the claims are denied/false)</label>
+                    <textarea rows="4" className="input-control" placeholder="Describe why the allegations are false, details of compliance, payments made..." required value={fields.rebuttal || ""} onChange={(e) => handleFieldChange("rebuttal", e.target.value)}></textarea>
+                  </div>
+                </div>
+              )}
+
+              {templateType === "RTI Application" && (
+                <div>
+                  <div className="grid-2">
+                    <div className="input-group">
+                      <label className="input-label">Applicant Name (You)</label>
+                      <input type="text" className="input-control" placeholder="e.g. abcd" required value={fields.name || ""} onChange={(e) => handleFieldChange("name", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Public Authority Name (e.g. PIO / Department)</label>
+                      <input type="text" className="input-control" placeholder="e.g. Public Information Officer, PWD" required value={fields.authority || ""} onChange={(e) => handleFieldChange("authority", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Applicant Address</label>
+                      <input type="text" className="input-control" placeholder="Your address" required value={fields.address || ""} onChange={(e) => handleFieldChange("address", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Public Authority Address</label>
+                      <input type="text" className="input-control" placeholder="Department address" required value={fields.authority_addr || ""} onChange={(e) => handleFieldChange("authority_addr", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="grid-2">
+                    <div className="input-group">
+                      <label className="input-label">Information Period Required</label>
+                      <input type="text" className="input-control" placeholder="e.g. April 2024 to March 2025" required value={fields.period || ""} onChange={(e) => handleFieldChange("period", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Fee Payment Details (e.g., IPO No. / Cash Receipt)</label>
+                      <input type="text" className="input-control" placeholder="e.g. IPO No. 54F 123456 (or 'BPL Cardholder')" required value={fields.fee_details || ""} onChange={(e) => handleFieldChange("fee_details", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Specific Information / Questions Sought</label>
+                    <textarea rows="4" className="input-control" placeholder="List the specific questions or documents you want (e.g., 1. Copy of attendance register, 2. Details of fund allocated...)" required value={fields.queries || ""} onChange={(e) => handleFieldChange("queries", e.target.value)}></textarea>
+                  </div>
+                </div>
+              )}
+
+              {templateType === "Police Commissioner Complaint" && (
+                <div>
+                  <div className="grid-2">
+                    <div className="input-group">
+                      <label className="input-label">Complainant Name (You)</label>
+                      <input type="text" className="input-control" placeholder="e.g. abcd" required value={fields.name || ""} onChange={(e) => handleFieldChange("name", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Commissioner Office Address</label>
+                      <input type="text" className="input-control" placeholder="e.g. Commissioner of Police, Greater Chennai" required value={fields.commissioner_addr || ""} onChange={(e) => handleFieldChange("commissioner_addr", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Complainant Address</label>
+                      <input type="text" className="input-control" placeholder="Your address" required value={fields.address || ""} onChange={(e) => handleFieldChange("address", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Local Police Station Name</label>
+                      <input type="text" className="input-control" placeholder="e.g. R4 Pondy Bazaar PS" required value={fields.ps || ""} onChange={(e) => handleFieldChange("ps", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="grid-2">
+                    <div className="input-group">
+                      <label className="input-label">Date of Incident</label>
+                      <input type="text" className="input-control" placeholder="e.g. 15th May 2026" required value={fields.incident_date || ""} onChange={(e) => handleFieldChange("incident_date", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Date of Complaint to Local PS</label>
+                      <input type="text" className="input-control" placeholder="e.g. 17th May 2026" required value={fields.local_complaint_date || ""} onChange={(e) => handleFieldChange("local_complaint_date", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Details of Incident & Local Police Inaction</label>
+                    <textarea rows="4" className="input-control" placeholder="Describe the offence and how the local police failed to take action or register an FIR..." required value={fields.details || ""} onChange={(e) => handleFieldChange("details", e.target.value)}></textarea>
+                  </div>
+                </div>
+              )}
+
+              {templateType === "Banking Ombudsman Complaint" && (
+                <div>
+                  <div className="grid-2">
+                    <div className="input-group">
+                      <label className="input-label">Complainant Name (You)</label>
+                      <input type="text" className="input-control" placeholder="e.g. abcd" required value={fields.name || ""} onChange={(e) => handleFieldChange("name", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Ombudsman City & Office Address</label>
+                      <input type="text" className="input-control" placeholder="e.g. RBI, Fort Glacis, Chennai" required value={fields.ombudsman_addr || ""} onChange={(e) => handleFieldChange("ombudsman_addr", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Bank Name & Branch</label>
+                      <input type="text" className="input-control" placeholder="e.g. SBI, T-Nagar Branch" required value={fields.bank_details || ""} onChange={(e) => handleFieldChange("bank_details", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Account Number</label>
+                      <input type="text" className="input-control" placeholder="e.g. 12345678901" required value={fields.account_no || ""} onChange={(e) => handleFieldChange("account_no", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="grid-2">
+                    <div className="input-group">
+                      <label className="input-label">Date of Complaint to Bank</label>
+                      <input type="text" className="input-control" placeholder="e.g. 1st April 2026" required value={fields.complaint_date || ""} onChange={(e) => handleFieldChange("complaint_date", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Refund/Compensation Claimed (₹)</label>
+                      <input type="text" className="input-control" placeholder="e.g. 50000" required value={fields.amount || ""} onChange={(e) => handleFieldChange("amount", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Description of Bank's Deficiency in Service</label>
+                    <textarea rows="4" className="input-control" placeholder="Describe the banking grievance (e.g., unauthorized card transaction, ATM cash not dispensed, etc.) and bank's inaction..." required value={fields.details || ""} onChange={(e) => handleFieldChange("details", e.target.value)}></textarea>
+                  </div>
+                </div>
+              )}
+
+              {templateType === "RERA Complaint" && (
+                <div>
+                  <div className="grid-2">
+                    <div className="input-group">
+                      <label className="input-label">Complainant Name (You)</label>
+                      <input type="text" className="input-control" placeholder="e.g. abcd" required value={fields.name || ""} onChange={(e) => handleFieldChange("name", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Builder / Promoter Name</label>
+                      <input type="text" className="input-control" placeholder="e.g. ABC Developers Pvt. Ltd." required value={fields.builder || ""} onChange={(e) => handleFieldChange("builder", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Project Name & RERA Reg No.</label>
+                      <input type="text" className="input-control" placeholder="e.g. Sunrise Enclave, Reg: TN/29/Building/0123/2024" required value={fields.project_details || ""} onChange={(e) => handleFieldChange("project_details", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Flat/Plot Number</label>
+                      <input type="text" className="input-control" placeholder="e.g. Flat No. 402, B-Block" required value={fields.unit_no || ""} onChange={(e) => handleFieldChange("unit_no", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="grid-2">
+                    <div className="input-group">
+                      <label className="input-label">Total Value of Unit (₹)</label>
+                      <input type="text" className="input-control" placeholder="e.g. 7500000" required value={fields.total_cost || ""} onChange={(e) => handleFieldChange("total_cost", e.target.value)} />
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Amount Paid till Date (₹)</label>
+                      <input type="text" className="input-control" placeholder="e.g. 5000000" required value={fields.amount_paid || ""} onChange={(e) => handleFieldChange("amount_paid", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Details of Builder Violations / Delay</label>
+                    <textarea rows="4" className="input-control" placeholder="Describe developer defaults (delay in possession, deviations from plan, structural defects)..." required value={fields.violations || ""} onChange={(e) => handleFieldChange("violations", e.target.value)}></textarea>
                   </div>
                 </div>
               )}

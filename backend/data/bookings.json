@@ -63,5 +63,18 @@
     "slot": "09:30 AM",
     "details": "My case is regarding a boundary dispute with my neighbor.",
     "timestamp": "2026-05-29T10:26:07.631765"
+  },
+  {
+    "code": "ND-99BC08",
+    "lawyer_id": 8,
+    "lawyer_name": "Ajay",
+    "specialization": "Real Estate & Corporate Law (சொத்து மற்றும் நிறுவன சட்டம்)",
+    "client_name": "ajay godric",
+    "client_email": "ajaygodric@outlook.com",
+    "client_phone": "9566722004",
+    "date": "2026-06-01",
+    "slot": "11:30 AM",
+    "details": "test",
+    "timestamp": "2026-06-01T12:28:29.019469"
   }
 ]

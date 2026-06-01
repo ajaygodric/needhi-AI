@@ -9,7 +9,7 @@ from typing import List, Optional
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 import google.generativeai as genai
 from PIL import Image
 import pypdf
@@ -20,8 +20,12 @@ app = FastAPI(title="Needhi AI Backend", version="1.0.0")
 # Enable CORS for frontend connection (Vite dev server or static build)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -51,10 +55,15 @@ def load_api_keys():
             print(f"Error reading secrets.toml: {e}")
             
     # Fallback to environment variables
-    for env_var in ["GEMINI_API_KEY", "GEMINI_API_KEY_2", "GEMINI_API_KEY_3", "GEMINI_API_KEY_4"]:
+    for env_var in ["GEMINI_API_KEY", "GEMINI_API_KEY_2", "GEMINI_API_KEY_3", "GEMINI_API_KEY_4", "GEMINI_API_KEY_5", "GEMINI_API_KEY_6"]:
         val = os.environ.get(env_var)
         if val and val not in keys:
             keys.append(val)
+            
+    # Dynamically scan environment variables for other keys starting with GEMINI_API_KEY
+    for k, v in os.environ.items():
+        if k.startswith("GEMINI_API_KEY") and v and v not in keys:
+            keys.append(v)
             
     return keys if keys else [""]
 
@@ -64,7 +73,6 @@ genai.configure(api_key=GOOGLE_API_KEY)
 
 MODEL_FALLBACK_ORDER = [
     "models/gemini-2.5-flash-lite",
-    "models/gemini-3.1-flash-lite",
     "models/gemini-2.5-flash",
     "models/gemini-2.0-flash",
     "models/gemini-2.0-flash-lite",
@@ -287,6 +295,8 @@ class FIRRequest(BaseModel):
     state: str
     ps: str
     name: str
+    category: Optional[str] = None
+    category_fields: Optional[dict] = None
 
 class TemplateRequest(BaseModel):
     template_type: str
@@ -294,21 +304,40 @@ class TemplateRequest(BaseModel):
 
 class BookLawyerRequest(BaseModel):
     lawyer_id: int
-    client_name: str
-    client_email: str
-    client_phone: str
-    date: str
-    slot: str
-    details: str
+    client_name: str = Field(..., min_length=2, max_length=100)
+    client_email: EmailStr = Field(..., max_length=255)
+    client_phone: str = Field(..., min_length=10, max_length=15)
+    date: str = Field(..., min_length=10, max_length=10)
+    slot: str = Field(..., min_length=3, max_length=30)
+    details: str = Field(..., max_length=1000)
 
 class BnsCompareRequest(BaseModel):
     query: str
 
+class ChatDocRequest(BaseModel):
+    doc_text: str
+    query: str
+    language: str
+    history: List[ChatMessage]
+
+class PredictOutcomeRequest(BaseModel):
+    offense: str
+    narrative: str
+    evidence: List[str]
+    prior_record: str
+    jurisdiction: str
+    language: str
+
+class SimplifyTextRequest(BaseModel):
+    text: str
+    target_language: str
+
+
 class CaseSubscribeRequest(BaseModel):
-    cnr: str
-    email: str
-    client_name: str
-    language: str = "English"
+    cnr: str = Field(..., min_length=10, max_length=30)
+    email: EmailStr = Field(..., max_length=255)
+    client_name: str = Field(..., min_length=2, max_length=100)
+    language: str = Field("English", max_length=20)
 
 # --- Endpoints ---
 
@@ -342,7 +371,7 @@ def health_check():
 async def chat_endpoint(req: ChatRequest):
     query = req.query
     language = req.language
-    history = req.history
+    history = req.history[-10:] if req.history else []
     
     # Format chat history for prompt
     history_block = ""
@@ -461,7 +490,24 @@ async def analyze_document(
     question: Optional[str] = Form(None)
 ):
     try:
-        file_bytes = await file.read()
+        # Enforce 25MB file size limit check (25 * 1024 * 1024 = 26,214,400 bytes)
+        MAX_FILE_SIZE = 25 * 1024 * 1024
+        
+        # Check size if available on the UploadFile object
+        if file.size is not None and file.size > MAX_FILE_SIZE:
+            raise HTTPException(status_code=413, detail="File size exceeds the 25MB limit.")
+            
+        # Read in chunks to prevent memory exhaustion if file.size was not set
+        file_bytes = b""
+        chunk_size = 1024 * 1024  # 1MB chunks
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+            file_bytes += chunk
+            if len(file_bytes) > MAX_FILE_SIZE:
+                raise HTTPException(status_code=413, detail="File size exceeds the 25MB limit.")
+                
         file_type = file.content_type
         extra_q = f" Also answer: {question}" if question else ""
         
@@ -486,9 +532,22 @@ Analyze this legal document and provide:
 Document text:
 {doc_text[:12000]}"""
                 response, _ = generate_gemini_content(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=4096))
-                return {"analysis": response.text}
+                return {"analysis": response.text, "doc_text": doc_text}
             else:
                 # Scanned PDF or text extraction failed: Fallback to native Gemini PDF analysis (with inline PDF data)
+                pdf_part = {
+                    "mime_type": "application/pdf",
+                    "data": file_bytes
+                }
+                
+                # Perform OCR to get doc_text
+                try:
+                    ocr_prompt = "Extract and transcribe all the text from this scanned PDF document as-is, without adding any remarks. Return only the extracted text."
+                    ocr_response, _ = generate_gemini_content([pdf_part, ocr_prompt], generation_config=genai.types.GenerationConfig(max_output_tokens=2048))
+                    doc_text = ocr_response.text
+                except Exception:
+                    doc_text = "Text extraction failed, but analysis is provided."
+
                 prompt = f"""You are Needhi AI, an Indian legal assistant.
 Analyze this scanned legal PDF document and provide:
 1. Document type and summary
@@ -496,16 +555,21 @@ Analyze this scanned legal PDF document and provide:
 3. Any rights or obligations of the parties
 4. Red flags or concerning clauses
 5. Recommended action{extra_q}"""
-                pdf_part = {
-                    "mime_type": "application/pdf",
-                    "data": file_bytes
-                }
                 response, _ = generate_gemini_content([pdf_part, prompt], generation_config=genai.types.GenerationConfig(max_output_tokens=4096))
-                return {"analysis": response.text}
+                return {"analysis": response.text, "doc_text": doc_text}
             
         # Analyze Image
         elif file_type in ["image/png", "image/jpeg", "image/jpg"]:
             image = Image.open(io.BytesIO(file_bytes))
+            
+            # Perform OCR to get doc_text
+            try:
+                ocr_prompt = "Extract and transcribe all the text from this image as-is, without adding any remarks. Return only the extracted text."
+                ocr_response, _ = generate_gemini_content([ocr_prompt, image], generation_config=genai.types.GenerationConfig(max_output_tokens=2048))
+                doc_text = ocr_response.text
+            except Exception:
+                doc_text = "Text extraction failed, but analysis is provided."
+
             prompt = f"""You are Needhi AI, an Indian legal assistant.
 Analyze this legal document image and provide:
 1. Document type and summary
@@ -514,9 +578,11 @@ Analyze this legal document image and provide:
 4. Red flags or concerning clauses
 5. Recommended action{extra_q}"""
             response, _ = generate_gemini_content([prompt, image])
-            return {"analysis": response.text}
+            return {"analysis": response.text, "doc_text": doc_text}
         else:
             raise HTTPException(status_code=400, detail="Unsupported file format. Please upload PDF, PNG or JPG.")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -938,9 +1004,49 @@ def generate_fir(req: FIRRequest):
     ps_line = f"Police Station: {req.ps}" if req.ps else "Police Station: ________________________"
     name_line = req.name if req.name else "________________________"
     
+    category_instructions = ""
+    valid_categories = {"Domestic Violence", "Cyber Fraud", "Property Dispute", "Motor Accident"}
+    if req.category in valid_categories:
+        fields_desc = ""
+        if req.category_fields:
+            fields_desc = "\n".join([f"- {k}: {v}" for k, v in req.category_fields.items() if v])
+        
+        category_instructions = f"\nINCIDENT CATEGORY: {req.category}\n"
+        if fields_desc:
+            category_instructions += f"Category-specific structured fields provided by user:\n{fields_desc}\n"
+            
+        category_instructions += "\nCRITICAL: Since this is a " + req.category + " case, you MUST explicitly cite the following sections in your draft under 'SPECIFIC OFFENCES & LEGAL SECTIONS':\n"
+        
+        if req.category == "Domestic Violence":
+            category_instructions += (
+                "- Cruelty by Husband or Relatives: Section 85 of BNS (formerly Section 498A of IPC)\n"
+                "- Voluntarily causing hurt: Section 115(2) of BNS (formerly Section 323 of IPC)\n"
+                "- Criminal Intimidation: Section 351 of BNS (formerly Section 506 of IPC)\n"
+            )
+        elif req.category == "Cyber Fraud":
+            category_instructions += (
+                "- Cheating: Section 318 of BNS (formerly Section 420 of IPC)\n"
+                "- Cheating by personation: Section 319 of BNS (formerly Section 419 of IPC)\n"
+                "- Cheating by personation using computer resource: Section 66D of the Information Technology Act, 2000 (IT Act)\n"
+            )
+        elif req.category == "Property Dispute":
+            category_instructions += (
+                "- Criminal Trespass: Section 329 of BNS (formerly Section 447 of IPC)\n"
+                "- Mischief causing damage: Section 324(4) of BNS (formerly Section 427 of IPC)\n"
+                "- Criminal Conspiracy: Section 61 of BNS (formerly Section 120B of IPC)\n"
+            )
+        elif req.category == "Motor Accident":
+            category_instructions += (
+                "- Rash driving on a public way: Section 281 of BNS (formerly Section 279 of IPC)\n"
+                "- Causing hurt or grievous hurt by rash/negligent act: Section 125A or 125B of BNS (formerly Section 337/338 of IPC)\n"
+                "- Causing death by negligence: Section 106(1) of BNS (formerly Section 304A of IPC) [Only include if there is a fatality/death mentioned in the narrative]\n"
+            )
+            
     prompt = f"""You are Needhi AI, an elite Indian legal counsel. Generate a highly professional, formal, and legally precise written complaint addressed to the Station House Officer (SHO) to register a First Information Report (FIR) under Section 173 of the Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) (formerly Section 154 of the Code of Criminal Procedure, 1973).
     
     Any details that are not provided or are blank must be represented in the document as a clearly labeled blank underline (e.g., "________________________") so that it can be printed and filled in manually. Do not use generic bracketed placeholders (like '[Your Address]' or similar); always use blank underlines.
+    
+    {category_instructions}
     
     Incident Details Provided:
     - Incident Narrative/Issue: {req.issue}
@@ -995,6 +1101,7 @@ def generate_fir(req: FIRRequest):
     try:
         response, _ = generate_gemini_content(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=2048))
         return {"draft": response.text}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1123,6 +1230,66 @@ def generate_template(req: TemplateRequest):
             "- REVOCATION AND INDEMNITY: Clauses governing the validity and indemnity of acts done by the Attorney.\n"
             "- SIGNATURES: Signed by the Principal, accepted by the Attorney, and attested by two witnesses.\n"
         )
+    elif tt == "Counter-Notice":
+        special_guidelines = (
+            "- The document must represent a formal reply/counter-notice responding to a legal notice received.\n"
+            "- Header must include: 'REGISTERED POST WITH ACKNOWLEDGEMENT DUE / SPEED POST' and the date.\n"
+            "- Addressed formally to the sender's advocate or the sender: 'To, [Opposite Party / Advocate Name], at [Opposite Party Address]'.\n"
+            "- Reference line: 'SUBJECT: Reply to the Legal Notice dated [Original Notice Date] regarding [Original Notice Subject]'.\n"
+            "- Preamble: 'Under instructions from and on behalf of my client [Sender Name], residing at [Sender Address], I hereby reply to your legal notice as follows:'\n"
+            "- Numbered Paragraphs of Denials: Chronologically deny the allegations in the original notice (deny breach of contract, deny outstanding liability, etc.). State clearly that the claims are false, frivolous, and vexatious.\n"
+            "- Specific Defenses: Describe the client's version of facts, details of payments made, compliance with agreements, or other legal defenses.\n"
+            "- Legal Warning: Demand that the opposite party withdraw the notice unconditionally within 15 days of receipt, failing which my client will initiate legal action for harassment, damages, and litigation expenses under civil and criminal laws at your cost.\n"
+            "- SIGNATURE BLOCK: 'Sincerely, [Sender/Advocate Name], Advocate / Reply Sender'.\n"
+        )
+    elif tt == "RTI Application":
+        special_guidelines = (
+            "- The document must represent a formal application under Section 6(1) of the Right to Information Act, 2005.\n"
+            "- Addressed to: 'To, The Public Information Officer (PIO), [Public Authority Name], [Public Authority Address]'.\n"
+            "- Title: 'APPLICATION UNDER SECTION 6(1) OF THE RIGHT TO INFORMATION ACT, 2005'\n"
+            "- Particulars of the applicant: Name, address, contact details.\n"
+            "- Particulars of information sought: Clearly list the details/documents required in numbered queries (1, 2, 3...).\n"
+            "- Specify the period of information required (e.g., Financial Year 2024-25).\n"
+            "- Citizenship declaration: 'I hereby declare that I am a citizen of India.'\n"
+            "- Application Fee: Mention payment details of the ₹10 fee (e.g. IPO No. / Demand Draft No. / Cash Receipt No.: ________________________, or state if applicant belongs to BPL category and is exempt).\n"
+            "- SIGNATURE BLOCK: 'Signature of Applicant: ________________________, Place: ________________________, Date: ________________________'.\n"
+        )
+    elif tt == "Police Commissioner Complaint":
+        special_guidelines = (
+            "- The document must represent a formal complaint addressed to the Commissioner of Police for escalation.\n"
+            "- Reference Section 173(4) of the Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) (formerly Section 154(3) of the CrPC) for reporting police inaction at the local station level.\n"
+            "- Addressed to: 'To, The Commissioner of Police, [Office Address / City]'.\n"
+            "- Subject: 'SUBJECT: Escalation Complaint under Section 173(4) of the BNSS, 2023, regarding refusal/failure of local Police Station [Local PS Name] to register an FIR for [Offense Subject].'\n"
+            "- Preamble: Detail the complainant's identity (Name, age, parentage, address).\n"
+            "- Chronology: Details of the original offence committed, the subsequent complaint submitted to the local Police Station on [Local Complaint Date], and the failure/inaction of the local officers to register an FIR.\n"
+            "- Relief: Pray/request the Commissioner to look into the matter, direct the registration of an FIR, and initiate a fair investigation.\n"
+            "- SIGNATURE BLOCK: 'Place: ________________________, Date: ________________________, Complainant Signature: ________________________'.\n"
+        )
+    elif tt == "Banking Ombudsman Complaint":
+        special_guidelines = (
+            "- The document must follow the format of a complaint under the Reserve Bank of India (Integrated Ombudsman Scheme), 2021.\n"
+            "- Addressed to: 'To, The Banking Ombudsman, Reserve Bank of India, [Ombudsman City/Address]'.\n"
+            "- Subject: 'SUBJECT: Complaint under RBI Integrated Ombudsman Scheme, 2021 against [Bank Name] Branch [Bank Branch] for deficiency in service regarding [Grievance Issue].'\n"
+            "- Details of complainant: Name, Address, Account Number.\n"
+            "- Ground of Complaint: Details of bank's failure (e.g. unauthorized transactions, debit card fraud, failed ATM transaction not refunded, delay in loan/pension processing).\n"
+            "- Pre-requisite condition: State that a written representation was submitted to the bank on [Complaint to Bank Date] (which is at least 30 days prior, or reply was unsatisfactory).\n"
+            "- Declaration: 'I hereby declare that this matter has not been filed/decided before any other court, Consumer Commission, or forum.'\n"
+            "- Relief sought: Refund of amount (₹[Amount]), compensation for mental agony, and interest.\n"
+            "- SIGNATURE BLOCK: 'Signature of Complainant: ________________________, Date: ________________________'.\n"
+        )
+    elif tt == "RERA Complaint":
+        special_guidelines = (
+            "- The document must follow the structure of a formal complaint filed under Section 31 of the Real Estate (Regulation and Development) Act, 2016 (RERA).\n"
+            "- Addressed to: 'BEFORE THE REAL ESTATE REGULATORY AUTHORITY AT [State/City]'.\n"
+            "- Parties: '[Complainant Name] ... COMPLAINANT versus [Builder/Promoter Name] ... RESPONDENT'.\n"
+            "- Subject: 'COMPLAINT UNDER SECTION 31 OF THE REAL ESTATE (REGULATION & DEVELOPMENT) ACT, 2016'.\n"
+            "- Core details: RERA registration number of project [RERA Project Reg No], Unit/Flat number [Unit Number], total cost [Total Flat Cost], amount paid till date [Amount Paid].\n"
+            "- Nature of grievance: Describe details of violation by promoter (e.g. delay in handing over possession, lack of amenities, structural defects, failure to execute builder-buyer agreement).\n"
+            "- Relief claimed: Refund of payment with interest, delay interest compensation, or immediate possession.\n"
+            "- Verification: A standard verification statement signed by the complainant.\n"
+            "- SIGNATURE BLOCK: 'Signature of Complainant: ________________________, Date: ________________________'.\n"
+        )
+
 
     prompt = f"""You are Needhi AI, an expert Indian legal assistant.
 Generate a formal, highly accurate, and legally valid {tt} document for India.
@@ -1210,6 +1377,162 @@ def generate_pdf(req: PDFGenerateRequest):
         return Response(content=bytes(pdf_bytes), media_type="application/pdf", headers={
             "Content-Disposition": "attachment; filename=Needhi_Document.pdf"
         })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat-doc")
+async def chat_doc_endpoint(req: ChatDocRequest):
+    doc_text = req.doc_text
+    query = req.query
+    language = req.language
+    history = req.history[-10:] if req.history else []
+    
+    history_block = ""
+    if history:
+        if language == "Tamil":
+            history_block = "\n".join(
+                f"{'பயனர்' if h.role=='user' else 'AI'}: {h.text}" for h in history
+            )
+            history_block = f"\nமுந்தைய உரையாடல்:\n{history_block}\n"
+        else:
+            history_block = "\n".join(
+                f"{'User' if h.role=='user' else 'AI'}: {h.text}" for h in history
+            )
+            history_block = f"\nPrevious conversation history:\n{history_block}\n"
+
+    if language == "Tamil":
+        prompt = f"""System: நீங்கள் 'நீதி AI' — இந்திய சட்டத்தில் நிபுணத்துவம் வாய்ந்த AI சட்ட உதவியாளர்.
+பயனர் ஒரு சட்ட ஆவணத்தை பதிவேற்றியுள்ளார். அதன் உரை கீழே கொடுக்கப்பட்டுள்ளது:
+--- ஆவணத்தின் உரை (Document Text) ---
+{doc_text[:12000]}
+--- முடிவு ---
+
+{history_block}
+பயனர் கேள்வி: '{query}'
+
+பணி (TASK):
+ஆவணத்தின் பின்னணியில் இருந்து பயனரின் கேள்விக்கு நேரடியாகவும், தெளிவாகவும் எளிய தமிழில் பதிலளிக்கவும். தேவைப்பட்டால் ஆவணத்தின் குறிப்பிட்ட பிரிவுகள் அல்லது ஷரத்துக்களை சுட்டிக்காட்டவும். ஆவணத்தில் இல்லாத தகவலைப் பற்றி கேள்வி இருந்தால், 'கொடுக்கப்பட்ட ஆவணத்தில் இதைப் பற்றிய தகவல்கள் இல்லை' என்று கூறிவிட்டு பொதுவான சட்ட பின்னணியை விளக்கவும்."""
+    else:
+        prompt = f"""System: You are 'Needhi AI' — an expert AI Legal Assistant specializing in Indian Law.
+The user has uploaded a legal document. Here is the text of the document:
+--- DOCUMENT START ---
+{doc_text[:12000]}
+--- DOCUMENT END ---
+
+{history_block}
+User Query: '{query}'
+
+TASK:
+Answer the user's question directly, clearly, and concisely in English, using the context of the uploaded document. Reference specific clauses or sections of the document where relevant. If the question is not answerable from the document, state that clearly, but provide general legal information if applicable."""
+
+    try:
+        response, used_model = generate_gemini_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(max_output_tokens=2048),
+            stream=True
+        )
+        
+        async def event_generator():
+            try:
+                for chunk in response:
+                    if chunk.candidates and chunk.candidates[0].content.parts:
+                        text = chunk.text
+                        if text:
+                            yield text
+            except Exception as e:
+                yield f"\n❌ [Stream interrupted: {str(e)}]"
+                    
+        return StreamingResponse(event_generator(), media_type="text/plain")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/predict-outcome")
+def predict_outcome(req: PredictOutcomeRequest):
+    evidence_list = ", ".join(req.evidence) if req.evidence else "No direct evidence specified"
+    
+    if req.language == "Tamil":
+        prompt = f"""System: நீங்கள் ஒரு இந்திய சட்ட நிபுணர் மற்றும் வழக்கறிஞர்.
+பயனர் வழங்கிய வழக்குகளின் விவரங்களின் அடிப்படையில் அதன் சட்டபூர்வ விளைவுகளை துல்லியமாக கணிக்கவும்.
+
+வழக்கின் விவரங்கள்:
+- குற்றம்/சட்ட பிரிவு: {req.offense}
+- நடந்த சம்பவம்: {req.narrative}
+- ஆதாரங்கள்: {evidence_list}
+- முந்தைய குற்ற பின்னணி: {req.prior_record}
+- அதிகார வரம்பு (மாநிலம்): {req.jurisdiction}
+
+பணி:
+கீழ்க்கண்ட விவரங்களுடன் ஒரு விரிவான சட்டபூர்வ கணிப்பு அறிக்கையை எளிய தமிழில் தயார் செய்க:
+1. **ஜாமீன் பெறுவதற்கான வாய்ப்பு (Bail Probability)**: (உயர் / நடுத்தர / குறைந்த - அதற்கான காரணங்களுடன்)
+2. **தண்டனை அல்லது அபராதம் (Likely Sentencing / Penalties)**: (BNS/IPC பிரிவுகளின்படி தண்டனை விவரம் மற்றும் அபராதம்)
+3. **வழக்கின் பலம் (Case Strength)**: (பலமான வழக்கு / நடுத்தரம் / பலவீனமானது - ஆதாரங்களின் அடிப்படையில் பகுப்பாய்வு)
+4. **முக்கிய சாதக/பாதக காரணிகள் (Key Factors & Risks)**
+5. **சட்டபூர்வ மறுப்புரை (Disclaimer)**: "மறுப்புரை: இது AI தொழில்நுட்பத்தால் உருவாக்கப்பட்ட ஒரு தற்காலிக கணிப்பு மட்டுமே. இது முறையான சட்ட ஆலோசனையாக கருதப்படக் கூடாது. உங்கள் வழக்கிற்கு தகுதியான வழக்கறிஞரை அணுகவும்."
+"""
+    else:
+        prompt = f"""System: You are an expert Indian legal archivist and counsel.
+Predict the likely legal outcomes based on the following case details.
+
+Case Parameters:
+- Offense/Dispute: {req.offense}
+- Factual Narrative: {req.narrative}
+- Evidence Available: {evidence_list}
+- Prior Criminal Record: {req.prior_record}
+- Jurisdiction (State): {req.jurisdiction}
+
+TASK:
+Generate a detailed, objective, and structured case outcome prediction report containing:
+1. **Bail Probability**: (High / Medium / Low with detailed reasons)
+2. **Likely Sentencing / Penalties**: (Sentencing ranges, fines, or damages under BNS/IPC and other relevant laws)
+3. **Case Strength Assessment**: (Strong / Moderate / Weak with analysis of the available evidence)
+4. **Key Strengths & Risk Factors**: (Factors supporting or weakening the case)
+5. **Legal Disclaimer**: "DISCLAIMER: This is an AI-generated outcome estimation based on the facts provided and does not constitute formal legal advice. Please consult a qualified advocate for actual legal representation."
+"""
+
+    try:
+        response, _ = generate_gemini_content(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=3076))
+        return {"prediction": response.text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/simplify-text")
+def simplify_text(req: SimplifyTextRequest):
+    if req.target_language == "Tamil":
+        prompt = f"""System: நீங்கள் ஒரு தமிழ் சட்ட மொழிபெயர்ப்பாளர் மற்றும் எளிமைப்படுத்துபவர்.
+பயனர் வழங்கிய கடினமான அல்லது சிக்கலான சட்ட உரையை (அறிவிப்பு, ஷரத்து, நீதிமன்ற உத்தரவு) எளிய மக்கள் புரிந்து கொள்ளும் எளிய தமிழில் சுருக்கி விளக்கவும்.
+
+சட்ட உரை snippet:
+---
+{req.text}
+---
+
+பணி:
+பின்வரும் தலைப்புகளில் எளிய தமிழில் பதில் தரவும்:
+1. **எளிய சுருக்கம் (Plain Language Summary)**: (இந்த உரை என்ன சொல்கிறது என்பதை 2-3 வரிகளில் எளிமையாக விளக்கவும்)
+2. **முக்கிய உரிமைகள் & கடமைகள் (Key Rights & Obligations)**: (பயனர் செய்ய வேண்டியவை அல்லது அவர்களுக்கு உள்ள உரிமைகள்)
+3. **காலக்கெடு / முக்கிய தேதிகள் (Deadlines & Key Dates)**: (ஏதேனும் காலக்கெடு குறிப்பிடப்பட்டிருந்தால்)
+4. **கடினமான சட்ட சொற்களின் பொருள் (Legal Terms Explained)**: (உரையில் உள்ள கடினமான ஆங்கில/சட்ட சொற்களுக்கு எளிய தமிழ் விளக்கம்)
+"""
+    else:
+        prompt = f"""System: You are an expert legal simplifier.
+Translate and simplify the following complex legal text snippet (e.g. a contract clause, legal notice, or court order) into plain, simple English that a layperson can easily understand.
+
+Legal text snippet:
+---
+{req.text}
+---
+
+TASK:
+Provide a clear, beautiful, and structured plain-language translation under the following headings:
+1. **Plain Language Summary**: (A simple 2-3 sentence overview of what this text actually means)
+2. **Key Rights & Obligations**: (What the reader is required to do or what they are entitled to under this text)
+3. **Deadlines & Timelines**: (Any deadlines or key action dates mentioned)
+4. **Key Legal Terms Simplified**: (Brief explanations of any jargon or complex legal terms used in the text)
+"""
+
+    try:
+        response, _ = generate_gemini_content(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=3076))
+        return {"simplified": response.text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

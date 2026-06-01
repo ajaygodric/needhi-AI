@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { chatWithNeedhi, analyzeDocument, downloadPdf } from "../utils/api";
+import { chatWithNeedhi, analyzeDocument, downloadPdf, chatWithDocument } from "../utils/api";
+import { renderMarkdown } from "../utils/renderMarkdown";
 import { FaPaperPlane, FaTrash, FaDownload, FaMicrophone, FaFileMedical, FaExclamationTriangle, FaComments, FaFileAlt, FaBalanceScale, FaUser } from "react-icons/fa";
 
 const HomeChat = ({ language }) => {
@@ -17,6 +18,11 @@ const HomeChat = ({ language }) => {
   const [extraQuestion, setExtraQuestion] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState("");
+  const [docText, setDocText] = useState("");
+  const [docChatHistory, setDocChatHistory] = useState([]);
+  const [docInputMessage, setDocInputMessage] = useState("");
+  const [isDocStreaming, setIsDocStreaming] = useState(false);
+  const [docStreamedResponse, setDocStreamedResponse] = useState("");
 
   // Voice state
   const [isListening, setIsListening] = useState(false);
@@ -82,17 +88,67 @@ const HomeChat = ({ language }) => {
   // Run document analyzer
   const handleAnalyzeDoc = async () => {
     if (!selectedFile) return;
+    
+    // Check 25MB limit on frontend (25 * 1024 * 1024 = 26,214,400 bytes)
+    const MAX_FILE_SIZE = 25 * 1024 * 1024;
+    if (selectedFile.size > MAX_FILE_SIZE) {
+      setAnalysisResult(
+        language === "Tamil"
+          ? "❌ பிழை: கோப்பின் அளவு 25MB வரம்பை விட அதிகமாக உள்ளது."
+          : "❌ Error: File size exceeds the 25MB limit."
+      );
+      return;
+    }
+
     setIsAnalyzing(true);
     setAnalysisResult("");
+    setDocText("");
+    setDocChatHistory([]);
 
     try {
       const res = await analyzeDocument(selectedFile, extraQuestion);
       setAnalysisResult(res.analysis);
+      setDocText(res.doc_text || "");
+      setDocChatHistory([
+        { role: "ai", text: res.analysis }
+      ]);
     } catch (err) {
       setAnalysisResult(`❌ Error: ${err.message}`);
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  // Send doc follow-up question
+  const handleSendDocMessage = () => {
+    if (!docInputMessage.trim() || !docText || docText.startsWith("Text extraction failed")) return;
+
+    const userMsg = { role: "user", text: docInputMessage };
+    const updatedHistory = [...docChatHistory, userMsg];
+    setDocChatHistory(updatedHistory);
+    setDocInputMessage("");
+    setIsDocStreaming(true);
+    setDocStreamedResponse("");
+
+    chatWithDocument(
+      docText,
+      docInputMessage,
+      language,
+      docChatHistory,
+      (chunk, full) => {
+        setDocStreamedResponse(full);
+      },
+      (fullText) => {
+        setDocChatHistory([...updatedHistory, { role: "ai", text: fullText }]);
+        setDocStreamedResponse("");
+        setIsDocStreaming(false);
+      },
+      (err) => {
+        setDocChatHistory([...updatedHistory, { role: "ai", text: `❌ Error: ${err.message}. Please try again.` }]);
+        setDocStreamedResponse("");
+        setIsDocStreaming(false);
+      }
+    );
   };
 
   // Native Web Speech API
@@ -174,37 +230,7 @@ const HomeChat = ({ language }) => {
     ) : null;
   };
 
-  const renderMarkdownToHtml = (text) => {
-    if (!text) return "";
-    let escaped = text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-    escaped = escaped.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-    const lines = escaped.split("\n");
-    const parsedLines = lines.map(line => {
-      const trimmed = line.trim();
-      
-      // Parse Markdown Headings
-      if (trimmed.startsWith("### ")) {
-        return `<h4 style="font-family: var(--font-serif); color: var(--accent-gold-light); margin: 12px 0 6px 0; font-size: 1.05rem; font-weight: 600;">${trimmed.substring(4)}</h4>`;
-      }
-      if (trimmed.startsWith("## ")) {
-        return `<h3 style="font-family: var(--font-serif); color: var(--accent-gold-light); margin: 16px 0 8px 0; font-size: 1.15rem; font-weight: 600;">${trimmed.substring(3)}</h3>`;
-      }
-      if (trimmed.startsWith("# ")) {
-        return `<h2 style="font-family: var(--font-serif); color: var(--accent-gold-light); margin: 18px 0 10px 0; font-size: 1.3rem; font-weight: 700;">${trimmed.substring(2)}</h2>`;
-      }
-      
-      // Parse Bullet points
-      if (trimmed.startsWith("* ") || trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
-        const bulletText = trimmed.startsWith("• ") ? trimmed.substring(2) : (trimmed.startsWith("* ") || trimmed.startsWith("- ")) ? trimmed.substring(2) : trimmed;
-        return `<span style="color: var(--accent-gold); margin-right: 6px;">•</span> ${bulletText}`;
-      }
-      return line;
-    });
-    return parsedLines.join("\n");
-  };
+
 
   return (
     <div>
@@ -271,7 +297,7 @@ const HomeChat = ({ language }) => {
                       <div className="chat-bubble">
                         <div 
                           style={{ whiteSpace: "pre-line" }}
-                          dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(msg.text) }}
+                          dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.text) }}
                         />
                         {msg.role === "ai" && detectSeverityHtml(msg.text)}
                       </div>
@@ -288,7 +314,7 @@ const HomeChat = ({ language }) => {
                       <div className="chat-bubble">
                         <div 
                           style={{ whiteSpace: "pre-line" }}
-                          dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(streamedResponse) }}
+                          dangerouslySetInnerHTML={{ __html: renderMarkdown(streamedResponse) }}
                         />
                       </div>
                     </div>
@@ -353,53 +379,161 @@ const HomeChat = ({ language }) => {
       {/* TAB 2: Document Scanner */}
       {activeTab === "upload" && (
         <div className="card step-card">
-          <div className="card-title">
-            <span><FaFileMedical /></span>
-            {language === "Tamil" ? "சட்ட ஆவண பகுப்பாய்வு" : "Legal Document Scanner"}
+          <div className="card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+              <FaFileMedical />
+              {language === "Tamil" ? "சட்ட ஆவண பகுப்பாய்வு & கலந்துரையாடல்" : "Legal Document Q&A & Analysis"}
+            </span>
+            {analysisResult && (
+              <button 
+                className="btn btn-small btn-danger" 
+                onClick={() => {
+                  setSelectedFile(null);
+                  setAnalysisResult("");
+                  setDocText("");
+                  setDocChatHistory([]);
+                  setExtraQuestion("");
+                }}
+              >
+                {language === "Tamil" ? "புதிய ஆவணம்" : "Upload Different File"}
+              </button>
+            )}
           </div>
-          <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginBottom: "20px" }}>
-            {language === "Tamil"
-              ? "ஒரு சட்ட ஆவணம் (PDF அல்லது படம்) பதிவேற்றவும். நீதி AI அதன் முக்கிய ஷரத்துக்களை பகுப்பாய்வு செய்யும்."
-              : "Upload any legal agreement, contract, or notice (PDF or Image). Our AI will summarize clauses and identify potential risks."}
-          </p>
+          
+          {!analysisResult ? (
+            <div>
+              <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginBottom: "20px" }}>
+                {language === "Tamil"
+                  ? "ஒரு சட்ட ஆவணம் (PDF அல்லது படம்) பதிவேற்றவும். நீதி AI அதன் முக்கிய ஷரத்துக்களை பகுப்பாய்வு செய்யும், பின்னர் உங்களுடன் உரையாடும்."
+                  : "Upload any legal agreement, contract, or notice (PDF or Image). Needhi AI will summarize it, identify risks, and chat with you about it."}
+              </p>
 
-          <div className="input-group">
-            <label className="input-label">{language === "Tamil" ? "கோப்பை தேர்வு செய்யவும் (PDF / PNG / JPG)" : "Choose Document File (PDF / PNG / JPG)"}</label>
-            <input
-              type="file"
-              className="input-control"
-              accept=".pdf,.png,.jpg,.jpeg"
-              onChange={(e) => setSelectedFile(e.target.files[0])}
-            />
-          </div>
+              <div className="input-group">
+                <label className="input-label">{language === "Tamil" ? "கோப்பை தேர்வு செய்யவும் (PDF / PNG / JPG)" : "Choose Document File (PDF / PNG / JPG)"}</label>
+                <input
+                  type="file"
+                  className="input-control"
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  onChange={(e) => setSelectedFile(e.target.files[0])}
+                />
+              </div>
 
-          <div className="input-group">
-            <label className="input-label">
-              {language === "Tamil" ? "கூடுதல் கேள்விகள் (தேவைப்பட்டால்)" : "Specific Questions to Analyze (Optional)"}
-            </label>
-            <input
-              type="text"
-              className="input-control"
-              placeholder={language === "Tamil" ? "எ.கா. இதில் எனக்கு ஏதேனும் நஷ்டஈடு பொறுப்புகள் உள்ளதா?" : "e.g. Are there any liability clauses that put me at risk?"}
-              value={extraQuestion}
-              onChange={(e) => setExtraQuestion(e.target.value)}
-            />
-          </div>
+              <div className="input-group">
+                <label className="input-label">
+                  {language === "Tamil" ? "ஆரம்பக் கேள்வி (தேவைப்பட்டால்)" : "Initial Analysis Focus (Optional)"}
+                </label>
+                <input
+                  type="text"
+                  className="input-control"
+                  placeholder={language === "Tamil" ? "எ.கா. இதில் எனக்கு ஏதேனும் நஷ்டஈடு பொறுப்புகள் உள்ளதா?" : "e.g. Highlight termination clauses and liabilities"}
+                  value={extraQuestion}
+                  onChange={(e) => setExtraQuestion(e.target.value)}
+                />
+              </div>
 
-          <button className="btn btn-primary" onClick={handleAnalyzeDoc} disabled={isAnalyzing || !selectedFile} style={{ width: "100%" }}>
-            {isAnalyzing ? (language === "Tamil" ? "பகுப்பாய்வு செய்யப்படுகிறது..." : "Analyzing Document...") : (language === "Tamil" ? "ஆவணத்தை ஆராய்" : "Analyze Document")}
-          </button>
-
-          {analysisResult && (
-            <div style={{ marginTop: "24px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                <h4 style={{ fontFamily: "var(--font-serif)" }}>{language === "Tamil" ? "விளைவு" : "Analysis Result"}</h4>
-                <button className="btn btn-small" onClick={() => downloadPdf("Document Scan Report", analysisResult, "Document_Analysis.pdf")}>
-                  <FaDownload /> {language === "Tamil" ? "பதிவிறக்கு" : "Download PDF"}
+              <button className="btn btn-primary" onClick={handleAnalyzeDoc} disabled={isAnalyzing || !selectedFile} style={{ width: "100%" }}>
+                {isAnalyzing ? (language === "Tamil" ? "பகுப்பாய்வு செய்யப்படுகிறது..." : "Analyzing Document...") : (language === "Tamil" ? "ஆவணத்தை ஆராய்" : "Analyze Document")}
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div style={{ background: "rgba(201,168,76,0.06)", border: "1px solid var(--border-gold)", borderRadius: "10px", padding: "12px 16px", marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontSize: "0.9rem", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70%" }}>
+                  <strong>{language === "Tamil" ? "ஆவணம்:" : "Active File:"}</strong> {selectedFile?.name || "Document"}
+                </div>
+                <button 
+                  className="btn btn-small"
+                  onClick={() => downloadPdf("Document Scan & Analysis Report", analysisResult, "Document_Analysis.pdf")}
+                >
+                  <FaDownload /> {language === "Tamil" ? "பதிவிறக்கு" : "Download Summary"}
                 </button>
               </div>
-              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-gold)", borderRadius: "10px", padding: "20px", fontSize: "0.93rem", whiteSpace: "pre-wrap", overflowX: "auto" }}>
-                {analysisResult}
+
+              {/* Document Multi-turn Chat Window */}
+              <div className="chat-window" style={{ height: "450px", marginBottom: "0px" }}>
+                <div className="chat-messages">
+                  {docChatHistory.map((msg, idx) => (
+                    <div key={idx} className={`chat-bubble-container ${msg.role}`}>
+                      <div className="chat-avatar">
+                        {msg.role === "user" ? <FaUser /> : <FaBalanceScale />}
+                      </div>
+                      <div className="chat-bubble-wrapper">
+                        <span className="chat-sender-name">
+                          {msg.role === "user" ? (language === "Tamil" ? "நீங்கள்" : "You") : "Needhi AI"}
+                        </span>
+                        <div className="chat-bubble">
+                          <div 
+                            style={{ whiteSpace: "pre-line" }}
+                            dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.text) }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Streaming doc response */}
+                  {isDocStreaming && docStreamedResponse && (
+                    <div className="chat-bubble-container ai">
+                      <div className="chat-avatar"><FaBalanceScale /></div>
+                      <div className="chat-bubble-wrapper">
+                        <span className="chat-sender-name">Needhi AI</span>
+                        <div className="chat-bubble">
+                          <div 
+                            style={{ whiteSpace: "pre-line" }}
+                            dangerouslySetInnerHTML={{ __html: renderMarkdown(docStreamedResponse) }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Loading typing state */}
+                  {isDocStreaming && !docStreamedResponse && (
+                    <div className="chat-bubble-container ai">
+                      <div className="chat-avatar"><FaBalanceScale /></div>
+                      <div className="chat-bubble-wrapper">
+                        <span className="chat-sender-name">Needhi AI</span>
+                        <div className="chat-bubble">
+                          <div className="typing-indicator">
+                            <div className="typing-dot"></div>
+                            <div className="typing-dot"></div>
+                            <div className="typing-dot"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Doc Input Bar */}
+                <div className="chat-input-bar">
+                  <input
+                    type="text"
+                    className="chat-input"
+                    placeholder={
+                      docText.startsWith("Text extraction failed")
+                        ? (language === "Tamil"
+                            ? "ஆவண உரை பகுப்பாய்வு தோல்வியடைந்தது. பின்தொடர முடியாது."
+                            : "Text extraction failed. Follow-up chat disabled.")
+                        : (language === "Tamil"
+                            ? "ஆவணம் பற்றி கேளுங்கள் (எ.கா. முறிவு ஷரத்து என்ன சொல்கிறது?)"
+                            : "Ask about the document (e.g. Can I terminate this without notice?)")
+                    }
+                    value={docInputMessage}
+                    onChange={(e) => setDocInputMessage(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSendDocMessage()}
+                    disabled={isDocStreaming || docText.startsWith("Text extraction failed")}
+                    style={{ opacity: docText.startsWith("Text extraction failed") ? 0.6 : 1 }}
+                  />
+                  <button 
+                    className="btn btn-primary" 
+                    onClick={handleSendDocMessage} 
+                    disabled={isDocStreaming || !docInputMessage.trim() || docText.startsWith("Text extraction failed")}
+                    style={{ opacity: docText.startsWith("Text extraction failed") ? 0.6 : 1 }}
+                  >
+                    <FaPaperPlane />
+                  </button>
+                </div>
               </div>
             </div>
           )}
