@@ -1,32 +1,32 @@
-import { 
-  FaHome, 
-  FaBalanceScale, 
-  FaSearch, 
-  FaCalendarAlt, 
-  FaFileAlt, 
-  FaPenNib, 
-  FaShieldAlt, 
+import {
+  FaHome,
+  FaBalanceScale,
+  FaSearch,
+  FaCalendarAlt,
+  FaFileAlt,
+  FaPenNib,
+  FaShieldAlt,
   FaInfoCircle,
-  FaListAlt,
-  FaGavel,
-  FaLanguage,
-  FaCalendarCheck
+  FaBrain,
+  FaClipboardList,
+  FaBookOpen,
+  FaClock
 } from "react-icons/fa";
 
 const Navigation = ({ activeTab, setActiveTab, language, setLanguage, isOpen, setIsOpen }) => {
   const menuItems = [
     { id: "home", label: { English: "Home", Tamil: "முகப்பு" }, icon: <FaHome /> },
-    { id: "bns", label: { English: "BNS vs IPC Map", Tamil: "BNS vs IPC ஒப்பீடு" }, icon: <FaBalanceScale /> },
-    { id: "predictor", label: { English: "Outcome Predictor", Tamil: "வழக்கு கணிப்பு" }, icon: <FaGavel /> },
-    { id: "fir", label: { English: "FIR Draft Wizard", Tamil: "FIR எழுதுபவர்" }, icon: <FaPenNib /> },
-    { id: "templates", label: { English: "Document Studio", Tamil: "ஆவணங்கள்" }, icon: <FaFileAlt /> },
-    { id: "checklist", label: { English: "Filing Checklist", Tamil: "தாக்கல் சரிபார்ப்பு" }, icon: <FaListAlt /> },
-    { id: "simplifier", label: { English: "Legal Simplifier", Tamil: "சட்ட மொழியாக்கம்" }, icon: <FaLanguage /> },
-    { id: "limitations", label: { English: "Limitation Checker", Tamil: "காலவரம்பு" }, icon: <FaCalendarCheck /> },
-    { id: "rights", label: { English: "Know Your Rights", Tamil: "உரிமைகள்" }, icon: <FaShieldAlt /> },
-    { id: "lawyers", label: { English: "Book Lawyer", Tamil: "வழக்கறிஞர்கள்" }, icon: <FaCalendarAlt /> },
-    { id: "case", label: { English: "Case Tracker", Tamil: "வழக்கு கண்காணிப்பு" }, icon: <FaSearch /> },
-    { id: "about", label: { English: "About & Helplines", Tamil: "உதவி எண்கள்" }, icon: <FaInfoCircle /> },
+    { id: "bns", label: { English: "BNS vs IPC Map", Tamil: "BNS vs IPC வரைபடம்" }, icon: <FaBalanceScale /> },
+    { id: "predictor", label: { English: "Outcome Predictor", Tamil: "முடிவு கணிப்பாளர்" }, icon: <FaBrain /> },
+    { id: "fir", label: { English: "FIR Draft Wizard", Tamil: "FIR வரைவு வழிகாட்டி" }, icon: <FaPenNib /> },
+    { id: "templates", label: { English: "Document Studio", Tamil: "ஆவண ஸ்டுடியோ" }, icon: <FaFileAlt /> },
+    { id: "checklist", label: { English: "Filing Checklist", Tamil: "தாக்கல் சரிபார்ப்பு" }, icon: <FaClipboardList /> },
+    { id: "simplifier", label: { English: "Legal Simplifier", Tamil: "சட்ட எளிமையாக்கி" }, icon: <FaBookOpen /> },
+    { id: "limitations", label: { English: "Limitation Checker", Tamil: "காலவரம்பு சரிபார்ப்பான்" }, icon: <FaClock /> },
+    { id: "rights", label: { English: "Know Your Rights", Tamil: "உங்கள் உரிமைகள்" }, icon: <FaShieldAlt /> },
+    { id: "lawyers", label: { English: "Book a Lawyer", Tamil: "வழக்கறிஞர் முன்பதிவு" }, icon: <FaCalendarAlt /> },
+    { id: "case", label: { English: "Case Tracker", Tamil: "வழக்கு கண்காணிப்பாளர்" }, icon: <FaSearch /> },
+    { id: "about", label: { English: "About & Helpline", Tamil: "விவரம் & உதவி எண்கள்" }, icon: <FaInfoCircle /> },
   ];
 
   return (

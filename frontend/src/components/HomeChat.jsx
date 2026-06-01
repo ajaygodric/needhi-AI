@@ -58,7 +58,7 @@ const HomeChat = ({ language }) => {
     if (!msg.trim()) return;
 
     const userMsg = { role: "user", text: msg };
-    const updatedHistory = [...chatHistory, userMsg];
+    const updatedHistory = [...chatHistory, userMsg].slice(-30);
     setChatHistory(updatedHistory);
     setInputMessage("");
     setIsStreaming(true);
@@ -68,17 +68,17 @@ const HomeChat = ({ language }) => {
     chatWithNeedhi(
       msg,
       language,
-      chatHistory,
+      chatHistory.slice(-30),
       (chunk, full) => {
         setStreamedResponse(full);
       },
       (fullText) => {
-        setChatHistory([...updatedHistory, { role: "ai", text: fullText }]);
+        setChatHistory([...updatedHistory, { role: "ai", text: fullText }].slice(-30));
         setStreamedResponse("");
         setIsStreaming(false);
       },
       (err) => {
-        setChatHistory([...updatedHistory, { role: "ai", text: `❌ Error: ${err.message}. Please try again.` }]);
+        setChatHistory([...updatedHistory, { role: "ai", text: `❌ Error: ${err.message}. Please try again.` }].slice(-30));
         setStreamedResponse("");
         setIsStreaming(false);
       }
@@ -124,7 +124,7 @@ const HomeChat = ({ language }) => {
     if (!docInputMessage.trim() || !docText || docText.startsWith("Text extraction failed")) return;
 
     const userMsg = { role: "user", text: docInputMessage };
-    const updatedHistory = [...docChatHistory, userMsg];
+    const updatedHistory = [...docChatHistory, userMsg].slice(-30);
     setDocChatHistory(updatedHistory);
     setDocInputMessage("");
     setIsDocStreaming(true);
@@ -134,17 +134,17 @@ const HomeChat = ({ language }) => {
       docText,
       docInputMessage,
       language,
-      docChatHistory,
+      docChatHistory.slice(-30),
       (chunk, full) => {
         setDocStreamedResponse(full);
       },
       (fullText) => {
-        setDocChatHistory([...updatedHistory, { role: "ai", text: fullText }]);
+        setDocChatHistory([...updatedHistory, { role: "ai", text: fullText }].slice(-30));
         setDocStreamedResponse("");
         setIsDocStreaming(false);
       },
       (err) => {
-        setDocChatHistory([...updatedHistory, { role: "ai", text: `❌ Error: ${err.message}. Please try again.` }]);
+        setDocChatHistory([...updatedHistory, { role: "ai", text: `❌ Error: ${err.message}. Please try again.` }].slice(-30));
         setDocStreamedResponse("");
         setIsDocStreaming(false);
       }
@@ -243,9 +243,9 @@ const HomeChat = ({ language }) => {
             : "Your Intelligent AI Legal Counsel — Plain English Legal Guidance & Analysis"}
         </p>
         <div className="stats-bar">
-          <div className="stat-item"><span className="stat-num">BNS</span><span class="stat-label">Bharatiya Nyaya Sanhita</span></div>
-          <div className="stat-item"><span className="stat-num">IPC</span><span class="stat-label">Indian Penal Code</span></div>
-          <div className="stat-item"><span className="stat-num">24/7</span><span class="stat-label">Instant Aid</span></div>
+          <div className="stat-item"><span className="stat-num">BNS</span><span className="stat-label">Bharatiya Nyaya Sanhita</span></div>
+          <div className="stat-item"><span className="stat-num">IPC</span><span className="stat-label">Indian Penal Code</span></div>
+          <div className="stat-item"><span className="stat-num">24/7</span><span className="stat-label">Instant Aid</span></div>
         </div>
       </div>
 

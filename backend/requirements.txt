@@ -6,4 +6,6 @@ Pillow>=10.0.0
 pypdf>=4.0.0
 fpdf2>=2.7.0
 email-validator>=2.0.0
+cryptography>=41.0.0
+
 

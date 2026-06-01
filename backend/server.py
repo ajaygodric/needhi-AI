@@ -4,9 +4,12 @@ import json
 import base64
 import urllib.request
 import re as _re
-from datetime import datetime
+import time
+import logging
+from collections import defaultdict
+from datetime import datetime, timedelta, date
 from typing import List, Optional
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, Response
 from pydantic import BaseModel, EmailStr, Field
@@ -14,45 +17,194 @@ import google.generativeai as genai
 from PIL import Image
 import pypdf
 from fpdf import FPDF
+from cryptography.fernet import Fernet
 
-app = FastAPI(title="Needhi AI Backend", version="1.0.0")
+# --- Logging Setup ---
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("needhi")
 
-# Enable CORS for frontend connection (Vite dev server or static build)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# --- Dynamic TOML Parser ---
+try:
+    import tomllib
+except ImportError:
+    try:
+        import tomli as tomllib
+    except ImportError:
+        tomllib = None
 
 # Root paths
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT_DIR, "backend", "data")
 
+def load_secrets_toml() -> dict:
+    secrets_path = os.path.join(ROOT_DIR, ".streamlit", "secrets.toml")
+    if not os.path.exists(secrets_path) or tomllib is None:
+        return {}
+    try:
+        with open(secrets_path, "rb") as f:
+            return tomllib.load(f)
+    except Exception as e:
+        logger.exception("Error reading secrets.toml")
+        return {}
+
+# --- Atomic File Locking Manager ---
+class FileLock:
+    def __init__(self, lock_name: str, timeout: int = 5):
+        self.lock_path = os.path.join(ROOT_DIR, "backend", f"{lock_name}.lock")
+        self.timeout = timeout
+        self.locked = False
+        
+    def __enter__(self):
+        start_time = time.time()
+        while time.time() - start_time < self.timeout:
+            try:
+                os.mkdir(self.lock_path)
+                self.locked = True
+                return self
+            except FileExistsError:
+                time.sleep(0.1)
+        raise RuntimeError(f"Timeout waiting for file lock: {self.lock_path}")
+        
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.locked:
+            try:
+                os.rmdir(self.lock_path)
+            except Exception:
+                pass
+
+def safe_json_append(filepath: str, new_record: dict, lock_name: str) -> list:
+    """Thread-safe and process-safe read-modify-write for JSON files."""
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    with FileLock(lock_name):
+        records = []
+        if os.path.exists(filepath):
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    content = f.read().strip()
+                    records = json.loads(content) if content else []
+            except Exception:
+                records = []
+        records.append(new_record)
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(records, f, indent=2, ensure_ascii=False)
+        return records
+
+# --- PII Encryption Helpers ---
+# Secure default Fernet key for local development fallback
+DEV_PII_KEY = b"f1K7kUvT8pX0rY2s3tU4vW5x6y7z8A9b0C1d2E3f4G5=" # Fernet-compliant 32-byte key
+
+def get_fernet():
+    key_str = os.environ.get("PII_ENCRYPTION_KEY")
+    if not key_str:
+        secrets = load_secrets_toml()
+        key_str = secrets.get("PII_ENCRYPTION_KEY")
+        
+    if not key_str:
+        logger.warning("PII_ENCRYPTION_KEY environment variable not set. Falling back to development key!")
+        return Fernet(DEV_PII_KEY)
+    try:
+        return Fernet(key_str.encode())
+    except Exception as e:
+        logger.error(f"Invalid PII_ENCRYPTION_KEY format: {e}. Using development fallback.")
+        return Fernet(DEV_PII_KEY)
+
+def encrypt_field(value: str) -> str:
+    if not value:
+        return value
+    try:
+        return get_fernet().encrypt(value.encode()).decode()
+    except Exception as e:
+        logger.error(f"Field encryption failed: {e}")
+        return value
+
+def decrypt_field(value: str) -> str:
+    if not value:
+        return value
+    try:
+        return get_fernet().decrypt(value.encode()).decode()
+    except Exception as e:
+        logger.error(f"Field decryption failed: {e}")
+        return value
+
+def purge_old_records(filepath: str, days: int = 90):
+    """Delete records older than `days` days."""
+    if not os.path.exists(filepath):
+        return
+    cutoff = datetime.now() - timedelta(days=days)
+    try:
+        lock_name = os.path.basename(filepath).replace(".json", "")
+        with FileLock(lock_name):
+            with open(filepath, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                records = json.loads(content) if content else []
+            
+            fresh = []
+            for r in records:
+                ts_str = r.get("timestamp")
+                if ts_str:
+                    try:
+                        ts = datetime.fromisoformat(ts_str)
+                        if ts > cutoff:
+                            fresh.append(r)
+                    except ValueError:
+                        fresh.append(r)
+                else:
+                    fresh.append(r)
+                    
+            if len(fresh) < len(records):
+                with open(filepath, "w", encoding="utf-8") as f:
+                    json.dump(fresh, f, indent=2, ensure_ascii=False)
+                logger.info(f"Purged {len(records) - len(fresh)} expired records from {filepath}")
+    except Exception as e:
+        logger.error(f"Failed to purge old records from {filepath}: {e}")
+
+# --- Memory-Based sliding window Rate Limiter ---
+class SlidingWindowRateLimiter:
+    def __init__(self, limit: int, window: int):
+        self.limit = limit
+        self.window = window
+        self.requests = defaultdict(list)
+        
+    def is_allowed(self, client_ip: str) -> bool:
+        now = time.time()
+        self.requests[client_ip] = [t for t in self.requests[client_ip] if now - t < self.window]
+        if len(self.requests[client_ip]) >= self.limit:
+            return False
+        self.requests[client_ip].append(now)
+        return True
+
+ai_limiter = SlidingWindowRateLimiter(limit=5, window=60)
+data_limiter = SlidingWindowRateLimiter(limit=20, window=60)
+
+def check_rate_limit_ai(request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not ai_limiter.is_allowed(client_ip):
+        raise HTTPException(status_code=429, detail="Too many requests. Please try again in a minute.")
+
+def check_rate_limit_data(request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not data_limiter.is_allowed(client_ip):
+        raise HTTPException(status_code=429, detail="Too many requests. Please try again in a minute.")
+
+app = FastAPI(title="Needhi AI Backend", version="1.0.0")
+
+# Enable CORS for frontend connection (Vite dev server or static build)
+ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
+
 # Load API keys from secrets.toml or environment variables
 def load_api_keys():
     keys = []
-    # Try streamlit secrets
-    secrets_path = os.path.join(ROOT_DIR, ".streamlit", "secrets.toml")
-    if os.path.exists(secrets_path):
-        try:
-            with open(secrets_path, "r") as f:
-                content = f.read()
-                # Simple parsing for GEMINI_API_KEY
-                for line in content.splitlines():
-                    if "=" in line:
-                        k, v = line.split("=", 1)
-                        k = k.strip()
-                        v = v.strip().strip('"').strip("'")
-                        if k.startswith("GEMINI_API_KEY") and v:
-                            keys.append(v)
-        except Exception as e:
-            print(f"Error reading secrets.toml: {e}")
+    # Try streamlit secrets via robust tomllib
+    secrets = load_secrets_toml()
+    for k, v in secrets.items():
+        if k.startswith("GEMINI_API_KEY") and v:
+            keys.append(v)
             
     # Fallback to environment variables
     for env_var in ["GEMINI_API_KEY", "GEMINI_API_KEY_2", "GEMINI_API_KEY_3", "GEMINI_API_KEY_4", "GEMINI_API_KEY_5", "GEMINI_API_KEY_6"]:
@@ -81,9 +233,17 @@ MODEL_FALLBACK_ORDER = [
 ACTIVE_MODEL_NAME = "models/gemini-2.5-flash-lite"
 
 # Helper function to query Gemini with Key Rotation and Model Fallbacks
-def generate_gemini_content(prompt_or_parts, generation_config=None, stream=False):
+def generate_gemini_content(prompt_or_parts, generation_config=None, stream=False, system_instruction=None):
     global API_KEYS
     models_to_try = [ACTIVE_MODEL_NAME] + [m for m in MODEL_FALLBACK_ORDER if m != ACTIVE_MODEL_NAME]
+    
+    # Safety settings - use robust block levels for production safety
+    safety_settings = [
+        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+    ]
     
     # Try all configured API keys
     for idx, api_key in enumerate(API_KEYS):
@@ -91,18 +251,12 @@ def generate_gemini_content(prompt_or_parts, generation_config=None, stream=Fals
             genai.configure(api_key=api_key)
             for model_name in models_to_try:
                 try:
-                    model = genai.GenerativeModel(model_name)
+                    model = genai.GenerativeModel(model_name, system_instruction=system_instruction)
                     kwargs = {}
                     if generation_config:
                         kwargs["generation_config"] = generation_config
                     
-                    # Safety settings
-                    kwargs["safety_settings"] = [
-                        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-                    ]
+                    kwargs["safety_settings"] = safety_settings
                     
                     if stream:
                         res = model.generate_content(prompt_or_parts, stream=True, **kwargs)
@@ -126,10 +280,11 @@ def generate_gemini_content(prompt_or_parts, generation_config=None, stream=Fals
             
     # Ultimate fallback with primary key and primary model
     genai.configure(api_key=API_KEYS[0])
-    model = genai.GenerativeModel(models_to_try[0])
+    model = genai.GenerativeModel(models_to_try[0], system_instruction=system_instruction)
     kwargs = {}
     if generation_config:
         kwargs["generation_config"] = generation_config
+    kwargs["safety_settings"] = safety_settings
     if stream:
         return model.generate_content(prompt_or_parts, stream=True, **kwargs), models_to_try[0]
     return model.generate_content(prompt_or_parts, **kwargs), models_to_try[0]
@@ -146,7 +301,7 @@ def get_tamil_font(bold=False):
                 "https://fonts.gstatic.com/s/notosanstamil/v31/ieVc2YdFI3GCY6SyQy1KfStzYKZgzN1z4LKDbeZce-0429tBManUktuex7vGo70R.ttf"
             )
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req) as response:
+            with urllib.request.urlopen(req, timeout=10) as response:
                 with open(font_path, 'wb') as out_file:
                     out_file.write(response.read())
         except Exception:
@@ -180,25 +335,16 @@ def send_email_notification(recipients: List[dict], subject: str, body: str) -> 
     brevo_key = os.environ.get("BREVO_API_KEY", "")
     email_from = os.environ.get("EMAIL_FROM", "")
     
-    # Check secrets.toml
-    secrets_path = os.path.join(ROOT_DIR, ".streamlit", "secrets.toml")
-    if os.path.exists(secrets_path):
-        try:
-            with open(secrets_path, "r") as f:
-                for line in f.read().splitlines():
-                    if "=" in line:
-                        k, v = line.split("=", 1)
-                        k = k.strip()
-                        v = v.strip().strip('"').strip("'")
-                        if k == "SMTP_HOST" and v: smtp_host = v
-                        elif k == "SMTP_PORT" and v: smtp_port = v
-                        elif k == "SMTP_USER" and v: smtp_user = v
-                        elif k == "SMTP_PASSWORD" and v: smtp_password = v
-                        elif k == "RESEND_API_KEY" and v: resend_key = v
-                        elif k == "BREVO_API_KEY" and v: brevo_key = v
-                        elif k == "EMAIL_FROM" and v: email_from = v
-        except Exception:
-            pass
+    # Check secrets.toml via tomllib
+    secrets = load_secrets_toml()
+    if secrets:
+        if "SMTP_HOST" in secrets: smtp_host = secrets["SMTP_HOST"]
+        if "SMTP_PORT" in secrets: smtp_port = str(secrets["SMTP_PORT"])
+        if "SMTP_USER" in secrets: smtp_user = secrets["SMTP_USER"]
+        if "SMTP_PASSWORD" in secrets: smtp_password = secrets["SMTP_PASSWORD"]
+        if "RESEND_API_KEY" in secrets: resend_key = secrets["RESEND_API_KEY"]
+        if "BREVO_API_KEY" in secrets: brevo_key = secrets["BREVO_API_KEY"]
+        if "EMAIL_FROM" in secrets: email_from = secrets["EMAIL_FROM"]
 
     to_emails = [r["email"] for r in recipients]
     
@@ -218,7 +364,7 @@ def send_email_notification(recipients: List[dict], subject: str, body: str) -> 
                 "text": body
             }
             api_req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers, method="POST")
-            with urllib.request.urlopen(api_req) as response:
+            with urllib.request.urlopen(api_req, timeout=10) as response:
                 resp_data = json.loads(response.read().decode())
                 return True, f"Sent successfully via Resend API (ID: {resp_data.get('id')})"
         except Exception as e:
@@ -240,7 +386,7 @@ def send_email_notification(recipients: List[dict], subject: str, body: str) -> 
                 "textContent": body
             }
             api_req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers, method="POST")
-            with urllib.request.urlopen(api_req) as response:
+            with urllib.request.urlopen(api_req, timeout=10) as response:
                 resp_data = json.loads(response.read().decode())
                 return True, f"Sent successfully via Brevo API (MessageId: {resp_data.get('messageId')})"
         except Exception as e:
@@ -278,28 +424,28 @@ def send_email_notification(recipients: List[dict], subject: str, body: str) -> 
 
 # --- Models ---
 class ChatMessage(BaseModel):
-    role: str
-    text: str
+    role: str = Field(..., max_length=10)
+    text: str = Field(..., max_length=8000)
 
 class ChatRequest(BaseModel):
-    query: str
-    language: str
-    history: List[ChatMessage]
+    query: str = Field(..., min_length=1, max_length=2000)
+    language: str = Field(..., max_length=20)
+    history: List[ChatMessage] = Field(default=[], max_length=30)
 
 class PDFGenerateRequest(BaseModel):
-    title: str
-    text: str
+    title: str = Field(..., max_length=200)
+    text: str = Field(..., max_length=50000)
 
 class FIRRequest(BaseModel):
-    issue: str
-    state: str
-    ps: str
-    name: str
-    category: Optional[str] = None
+    issue: str = Field(..., min_length=10, max_length=5000)
+    state: str = Field(..., max_length=100)
+    ps: str = Field(..., max_length=200)
+    name: str = Field(..., max_length=200)
+    category: Optional[str] = Field(None, max_length=50)
     category_fields: Optional[dict] = None
 
 class TemplateRequest(BaseModel):
-    template_type: str
+    template_type: str = Field(..., max_length=100)
     fields: dict
 
 class BookLawyerRequest(BaseModel):
@@ -312,26 +458,25 @@ class BookLawyerRequest(BaseModel):
     details: str = Field(..., max_length=1000)
 
 class BnsCompareRequest(BaseModel):
-    query: str
+    query: str = Field(..., min_length=1, max_length=500)
 
 class ChatDocRequest(BaseModel):
-    doc_text: str
-    query: str
-    language: str
-    history: List[ChatMessage]
+    doc_text: str = Field(..., max_length=50000)
+    query: str = Field(..., min_length=1, max_length=2000)
+    language: str = Field(..., max_length=20)
+    history: List[ChatMessage] = Field(default=[], max_length=30)
 
 class PredictOutcomeRequest(BaseModel):
-    offense: str
-    narrative: str
-    evidence: List[str]
-    prior_record: str
-    jurisdiction: str
-    language: str
+    offense: str = Field(..., max_length=500)
+    narrative: str = Field(..., max_length=3000)
+    evidence: List[str] = Field(default=[], max_length=20)
+    prior_record: str = Field(..., max_length=500)
+    jurisdiction: str = Field(..., max_length=100)
+    language: str = Field(..., max_length=20)
 
 class SimplifyTextRequest(BaseModel):
-    text: str
-    target_language: str
-
+    text: str = Field(..., min_length=10, max_length=10000)
+    target_language: str = Field(..., max_length=20)
 
 class CaseSubscribeRequest(BaseModel):
     cnr: str = Field(..., min_length=10, max_length=30)
@@ -339,58 +484,25 @@ class CaseSubscribeRequest(BaseModel):
     client_name: str = Field(..., min_length=2, max_length=100)
     language: str = Field("English", max_length=20)
 
+class BnsLookupRequest(BaseModel):
+    term: str = Field(default="", max_length=200)
+    category: str = Field(default="", max_length=100)
+
 # --- Endpoints ---
 
 @app.get("/api/health")
 def health_check():
-    brevo_key = os.environ.get("BREVO_API_KEY", "")
-    brevo_prefix = brevo_key[:12] if brevo_key else "Not Set"
-    
-    secrets_path = os.path.join(ROOT_DIR, ".streamlit", "secrets.toml")
-    secrets_brevo = "Not Set"
-    if os.path.exists(secrets_path):
-        try:
-            with open(secrets_path, "r") as f:
-                for line in f.read().splitlines():
-                    if "=" in line:
-                        k, v = line.split("=", 1)
-                        if k.strip() == "BREVO_API_KEY":
-                            secrets_brevo = v.strip().strip('"').strip("'")[:12]
-        except Exception:
-            pass
-            
-    return {
-        "status": "ok",
-        "model": ACTIVE_MODEL_NAME,
-        "keys_loaded": len(API_KEYS),
-        "brevo_env_prefix": brevo_prefix,
-        "brevo_secrets_prefix": secrets_brevo
-    }
+    return {"status": "ok"}
 
-@app.post("/api/chat")
+@app.post("/api/chat", dependencies=[Depends(check_rate_limit_ai)])
 async def chat_endpoint(req: ChatRequest):
     query = req.query
     language = req.language
     history = req.history[-10:] if req.history else []
     
-    # Format chat history for prompt
-    history_block = ""
-    if history:
-        if language == "Tamil":
-            history_block = "\n".join(
-                f"{'பயனர்' if h.role=='user' else 'AI'}: {h.text}" for h in history
-            )
-            history_block = f"\nமுந்தைய உரையாடல்:\n{history_block}\n"
-        else:
-            history_block = "\n".join(
-                f"{'User' if h.role=='user' else 'AI'}: {h.text}" for h in history
-            )
-            history_block = f"\nPrevious conversation:\n{history_block}\n"
-
     # Prompts
     if language == "Tamil":
-        prompt = f"""System: நீங்கள் 'நீதி AI' — இந்திய சட்டத்தில் நிபுணத்துவம் வாய்ந்த AI சட்ட உதவியாளர்.{history_block}
-User Query: '{query}'
+        system_instruction = """System: நீங்கள் 'நீதி AI' — இந்திய சட்டத்தில் நிபுணத்துவம் வாய்ந்த AI சட்ட உதவியாளர்.
 TASK:
 1. இந்த கேள்வி இந்திய சட்டம், நீதிமன்றம், காவல்துறை, குற்றம், உரிமைகள் அல்லது சட்ட நடைமுறைகள் தொடர்பானதா?
 2. இல்லை என்றால் சரியாக பதிலளிக்கவும்: "மன்னிக்கவும். நான் சட்டம் தொடர்பான கேள்விகளுக்கு மட்டுமே பதிலளிப்பேன்."
@@ -426,8 +538,7 @@ TASK:
       **📋 அடுத்த நடவடிக்கைகள் (Next Steps)**
       - எவ்வாறு புகார் செய்ய வேண்டும், காலவரம்பு, தேவையான ஆவணங்கள் போன்ற படிநிலைகள்"""
     else:
-        prompt = f"""System: You are 'Needhi AI' — an expert AI Legal Assistant specializing in Indian Law.{history_block}
-User Query: '{query}'
+        system_instruction = """You are 'Needhi AI' — an expert AI Legal Assistant specializing in Indian Law.
 TASK:
 1. Is this related to Indian Law, Court, Police, Crime, Rights, or Legal Procedures?
 2. IF NO: REPLY EXACTLY: "Sorry, I am designed to answer only legal questions."
@@ -463,11 +574,24 @@ TASK:
       **📋 Recommended Next Steps**
       - Provide a detailed step-by-step guide on how to file, proceed, or register (including forums, timelines, and required documents)."""
 
+    messages = []
+    if history:
+        for h in history:
+            messages.append({
+                "role": "user" if h.role == "user" else "model",
+                "parts": [h.text]
+            })
+    messages.append({
+        "role": "user",
+        "parts": [query]
+    })
+
     try:
         response, used_model = generate_gemini_content(
-            prompt,
+            messages,
             generation_config=genai.types.GenerationConfig(max_output_tokens=2048),
-            stream=True
+            stream=True,
+            system_instruction=system_instruction
         )
         
         async def event_generator():
@@ -482,9 +606,10 @@ TASK:
                     
         return StreamingResponse(event_generator(), media_type="text/plain")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Error in chat_endpoint")
+        raise HTTPException(status_code=500, detail="An internal error occurred. Please try again.")
 
-@app.post("/api/analyze-doc")
+@app.post("/api/analyze-doc", dependencies=[Depends(check_rate_limit_ai)])
 async def analyze_document(
     file: UploadFile = File(...),
     question: Optional[str] = Form(None)
@@ -508,11 +633,32 @@ async def analyze_document(
             if len(file_bytes) > MAX_FILE_SIZE:
                 raise HTTPException(status_code=413, detail="File size exceeds the 25MB limit.")
                 
-        file_type = file.content_type
+        # Validate magic bytes signature of the file
+        detected_mime = None
+        if file_bytes.startswith(b"%PDF"):
+            detected_mime = "application/pdf"
+        elif file_bytes.startswith(b"\x89PNG"):
+            detected_mime = "image/png"
+        elif file_bytes.startswith(b"\xff\xd8\xff"):
+            detected_mime = "image/jpeg"
+            
+        if not detected_mime:
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported or invalid file signature detected. Please upload a valid PDF, PNG or JPG."
+            )
+            
         extra_q = f" Also answer: {question}" if question else ""
         
+        # Isolated system instruction for grounding
+        system_instruction = (
+            "You are Needhi AI, an Indian legal assistant. "
+            "Your task is to analyze legal documents and provide a clear, structured overview. "
+            "Identify the document type, key clauses under Indian law, rights/obligations, red flags, and recommended actions."
+        )
+        
         # Analyze PDF text
-        if file_type == "application/pdf":
+        if detected_mime == "application/pdf":
             doc_text = ""
             try:
                 reader = pypdf.PdfReader(io.BytesIO(file_bytes))
@@ -521,17 +667,15 @@ async def analyze_document(
                 doc_text = ""
                 
             if len(doc_text.strip()) > 100:
-                prompt = f"""You are Needhi AI, an Indian legal assistant.
-Analyze this legal document and provide:
-1. Document type and summary
-2. Key legal clauses and their implications under Indian law
-3. Any rights or obligations of the parties
-4. Red flags or concerning clauses
-5. Recommended action{extra_q}
-
-Document text:
-{doc_text[:12000]}"""
-                response, _ = generate_gemini_content(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=4096))
+                prompt = (
+                    f"Analyze this legal document text. Make sure to address the following focus if provided: {extra_q}\n\n"
+                    f"Document text:\n{doc_text[:12000]}"
+                )
+                response, _ = generate_gemini_content(
+                    prompt, 
+                    generation_config=genai.types.GenerationConfig(max_output_tokens=4096),
+                    system_instruction=system_instruction
+                )
                 return {"analysis": response.text, "doc_text": doc_text}
             else:
                 # Scanned PDF or text extraction failed: Fallback to native Gemini PDF analysis (with inline PDF data)
@@ -548,18 +692,16 @@ Document text:
                 except Exception:
                     doc_text = "Text extraction failed, but analysis is provided."
 
-                prompt = f"""You are Needhi AI, an Indian legal assistant.
-Analyze this scanned legal PDF document and provide:
-1. Document type and summary
-2. Key legal clauses and their implications under Indian law
-3. Any rights or obligations of the parties
-4. Red flags or concerning clauses
-5. Recommended action{extra_q}"""
-                response, _ = generate_gemini_content([pdf_part, prompt], generation_config=genai.types.GenerationConfig(max_output_tokens=4096))
+                prompt = f"Analyze this scanned legal PDF document. Make sure to address the following focus if provided: {extra_q}"
+                response, _ = generate_gemini_content(
+                    [pdf_part, prompt], 
+                    generation_config=genai.types.GenerationConfig(max_output_tokens=4096),
+                    system_instruction=system_instruction
+                )
                 return {"analysis": response.text, "doc_text": doc_text}
             
         # Analyze Image
-        elif file_type in ["image/png", "image/jpeg", "image/jpg"]:
+        elif detected_mime in ["image/png", "image/jpeg"]:
             image = Image.open(io.BytesIO(file_bytes))
             
             # Perform OCR to get doc_text
@@ -570,34 +712,33 @@ Analyze this scanned legal PDF document and provide:
             except Exception:
                 doc_text = "Text extraction failed, but analysis is provided."
 
-            prompt = f"""You are Needhi AI, an Indian legal assistant.
-Analyze this legal document image and provide:
-1. Document type and summary
-2. Key legal clauses and their implications under Indian law
-3. Any rights or obligations of the parties
-4. Red flags or concerning clauses
-5. Recommended action{extra_q}"""
-            response, _ = generate_gemini_content([prompt, image])
+            prompt = f"Analyze this legal document image. Make sure to address the following focus if provided: {extra_q}"
+            response, _ = generate_gemini_content([prompt, image], system_instruction=system_instruction)
             return {"analysis": response.text, "doc_text": doc_text}
         else:
             raise HTTPException(status_code=400, detail="Unsupported file format. Please upload PDF, PNG or JPG.")
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Error in analyze_document")
+        raise HTTPException(status_code=500, detail="An internal error occurred during document analysis.")
 
-@app.post("/api/bns-lookup")
-def bns_lookup(query: dict):
-    search_term = query.get("term", "").lower().strip()
-    category = query.get("category", "")
+@app.post("/api/bns-lookup", dependencies=[Depends(check_rate_limit_data)])
+def bns_lookup(req: BnsLookupRequest):
+    search_term = req.term.lower().strip()
+    category = req.category
     
     # Load JSON database
     ipc_bns_path = os.path.join(DATA_DIR, "ipc_bns.json")
     if not os.path.exists(ipc_bns_path):
         return []
         
-    with open(ipc_bns_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        with open(ipc_bns_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        logger.exception("Error reading ipc_bns.json")
+        raise HTTPException(status_code=500, detail="Internal database error.")
         
     results = []
     for item in data:
@@ -619,41 +760,45 @@ def bns_lookup(query: dict):
             
     return results
 
-@app.post("/api/bns-compare-ai")
+@app.post("/api/bns-compare-ai", dependencies=[Depends(check_rate_limit_ai)])
 def bns_compare_ai(req: BnsCompareRequest):
     query_str = req.query.strip()
     if not query_str:
         return []
 
-    prompt = f"""
-    You are an expert Indian legal archivist comparing the old Indian Penal Code (IPC) and the new Bharatiya Nyaya Sanhita (BNS) 2023.
-    The user wants to compare and see transition details for: '{query_str}'.
-    Analyze the query, find the relevant sections, and provide one or more comparative card entries matching the schema below.
-    
-    Each object in the returned JSON list must represent a compared section:
-    - ipc: the old IPC section number(s) (e.g. '144' or '302' or '378, 379')
-    - bns: the new BNS section number(s) (e.g. '111' or '103(1)' or '303') or 'Repealed'
-    - title: short title of the offense, combining English and Tamil (e.g. 'Murder (கொலை)' or 'Defamation (அவதூறு)')
-    - category: 'Body' or 'Property' or 'Women & Children' or 'Public Peace' or 'State Sovereignty' or 'General'
-    - description: simple description of the offense in English
-    - tamil_description: simple description of the offense in Tamil
-    - punishment: punishment details under BNS in English
-    - tamil_punishment: punishment details under BNS in Tamil
-    - changes: key transition changes or differences in English
-    - tamil_changes: key transition changes or differences in Tamil
-    - bail: 'Bailable' or 'Non-Bailable' or 'Bailable / Non-Bailable' or 'N/A'
-    - cognizable: 'Cognizable' or 'Non-Cognizable' or 'N/A'
-    
-    Ensure the Tamil translations for titles, descriptions, punishments, and changes are accurate, formal, and natural.
-    If the queried section is repealed or de-criminalized, set 'bns' to 'Repealed'.
-    Return only a valid JSON array of objects. Do not wrap in markdown or backticks.
-    """
+    system_instruction = """You are Needhi AI, an expert Indian legal archivist comparing the old Indian Penal Code (IPC) and the new Bharatiya Nyaya Sanhita (BNS) 2023.
+Your task is to compare and see transition details for the queried offense.
+Analyze the query, find the relevant sections, and provide one or more comparative card entries matching the schema below.
+
+Each object in the returned JSON list must represent a compared section:
+- ipc: the old IPC section number(s) (e.g. '144' or '302' or '378, 379')
+- bns: the new BNS section number(s) (e.g. '111' or '103(1)' or '303') or 'Repealed'
+- title: short title of the offense, combining English and Tamil (e.g. 'Murder (கொலை)' or 'Defamation (அவதூறு)')
+- category: 'Body' or 'Property' or 'Women & Children' or 'Public Peace' or 'State Sovereignty' or 'General'
+- description: simple description of the offense in English
+- tamil_description: simple description of the offense in Tamil
+- punishment: punishment details under BNS in English
+- tamil_punishment: punishment details under BNS in Tamil
+- changes: key transition changes or differences in English
+- tamil_changes: key transition changes or differences in Tamil
+- bail: 'Bailable' or 'Non-Bailable' or 'Bailable / Non-Bailable' or 'N/A'
+- cognizable: 'Cognizable' or 'Non-Cognizable' or 'N/A'
+
+Ensure the Tamil translations for titles, descriptions, punishments, and changes are accurate, formal, and natural.
+If the queried section is repealed or de-criminalized, set 'bns' to 'Repealed'.
+Return only a valid JSON array of objects. Do not wrap in markdown or backticks."""
+
+    prompt = f"transition details for: '{query_str}'"
 
     try:
-        response, _ = generate_gemini_content(prompt, generation_config=genai.types.GenerationConfig(
-            response_mime_type="application/json",
-            max_output_tokens=2048
-        ))
+        response, _ = generate_gemini_content(
+            prompt, 
+            generation_config=genai.types.GenerationConfig(
+                response_mime_type="application/json",
+                max_output_tokens=2048
+            ),
+            system_instruction=system_instruction
+        )
         
         resp_text = response.text.strip()
         if resp_text.startswith("```"):
@@ -668,7 +813,7 @@ def bns_compare_ai(req: BnsCompareRequest):
         if isinstance(cards, list) and len(cards) > 0:
             return cards
     except Exception as e:
-        print("BNS AI comparison failed, falling back to local search:", e)
+        logger.exception("BNS AI comparison failed, falling back to local search")
         
     # Local fallback
     ipc_bns_path = os.path.join(DATA_DIR, "ipc_bns.json")
@@ -692,8 +837,8 @@ def bns_compare_ai(req: BnsCompareRequest):
             
     return []
 
-@app.post("/api/cases/subscribe")
-def subscribe_to_case(req: CaseSubscribeRequest):
+@app.post("/api/cases/subscribe", dependencies=[Depends(check_rate_limit_data)])
+def subscribe_to_case(req: CaseSubscribeRequest, request: Request):
     cnr = req.cnr.strip()
     email = req.email.strip().lower()
     client_name = req.client_name.strip()
@@ -714,90 +859,238 @@ def subscribe_to_case(req: CaseSubscribeRequest):
                     case_details = c
                     break
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to read cases database: {e}")
+            logger.exception("Failed to read cases database")
+            raise HTTPException(status_code=500, detail="Internal database error.")
             
     if not case_details:
         raise HTTPException(status_code=404, detail="Case with this CNR number not found")
         
-    # Save subscription
+    # Save subscription (pending verification)
     subscriptions_path = os.path.join(DATA_DIR, "subscriptions.json")
-    subscriptions = []
-    if os.path.exists(subscriptions_path):
-        try:
-            with open(subscriptions_path, "r", encoding="utf-8") as f:
-                subscriptions = json.load(f)
-        except Exception:
-            pass
+    verification_token = os.urandom(16).hex()
+    
+    with FileLock("subscriptions"):
+        subscriptions = []
+        if os.path.exists(subscriptions_path):
+            try:
+                with open(subscriptions_path, "r", encoding="utf-8") as f:
+                    subscriptions = json.load(f)
+            except Exception:
+                subscriptions = []
+                
+        # Check if already subscribed and verified
+        already_subscribed = False
+        for sub in subscriptions:
+            dec_email = decrypt_field(sub.get("email", ""))
+            if sub.get("cnr", "").lower() == cnr.lower() and dec_email.lower() == email:
+                if sub.get("verified", True):
+                    already_subscribed = True
+                break
+                
+        if already_subscribed:
+            return {
+                "status": "already_subscribed",
+                "message": "You are already subscribed to this case."
+            }
             
-    # Check if already subscribed
-    already_subscribed = False
-    for sub in subscriptions:
-        if sub.get("cnr", "").lower() == cnr.lower() and sub.get("email", "").lower() == email:
-            already_subscribed = True
-            break
-            
-    if not already_subscribed:
+        # Add or update subscription as pending
+        subscriptions = [
+            sub for sub in subscriptions
+            if not (sub.get("cnr", "").lower() == cnr.lower() and decrypt_field(sub.get("email", "")).lower() == email)
+        ]
+        
         subscriptions.append({
             "cnr": cnr,
-            "email": email,
-            "client_name": client_name,
+            "email": encrypt_field(email),
+            "client_name": encrypt_field(client_name),
             "language": language,
-            "subscribed_at": datetime.now().isoformat()
+            "verification_token": verification_token,
+            "verified": False,
+            "subscribed_at": datetime.now().isoformat(),
+            "timestamp": datetime.now().isoformat()
         })
+        
         try:
             with open(subscriptions_path, "w", encoding="utf-8") as f:
                 json.dump(subscriptions, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to save subscription: {e}")
+            logger.exception("Failed to save subscription")
+            raise HTTPException(status_code=500, detail="Failed to save subscription due to database error.")
             
-    # Construct Email Content
-    case_title = case_details.get("title", cnr)
-    case_title_tamil = case_details.get("tamil_title", case_title)
+    # Send verification email containing verification link
+    confirm_url = f"{request.base_url}api/cases/confirm-subscription?token={verification_token}"
     
     if language == "Tamil":
-        subject = f"நீதி AI: வழக்கு கண்காணிப்பு சந்தா உறுதிசெய்யப்பட்டது - {cnr}"
+        subject = f"நீதி AI: வழக்கு கண்காணிப்பு சந்தா சரிபார்ப்பு - {cnr}"
         body = f"""அன்புள்ள {client_name},
   
-நீங்கள் {cnr} ({case_title_tamil}) வழக்குகான மின்னஞ்சல் விழிப்பூட்டல்களுக்கு வெற்றிகரமாக குழுசேர்ந்துள்ளீர்கள்.
+{cnr} ({case_details.get('tamil_title', case_details.get('title'))}) வழக்குகான மின்னஞ்சல் விழிப்பூட்டல்களை சரிபார்க்க கீழே உள்ள இணைப்பை கிளிக் செய்யவும்:
+{confirm_url}
   
---- வழக்கு கண்காணிப்பு விவரங்கள் ---
-வழக்கு தலைப்பு: {case_title_tamil}
-நீதிமன்றம்: {case_details.get('tamil_court', case_details.get('court'))}
-தற்போதைய நிலை: {case_details.get('current_stage_tamil', case_details.get('current_stage'))}
-அடுத்த விசாரணை தேதி: {case_details.get('next_hearing')} (அறை: {case_details.get('courtroom')})
-  
-இந்த வழக்கில் புதிய தகவல்கள் அல்லது விசாரணை தேதிகள் புதுப்பிக்கப்படும்போது, {email} என்ற முகவரிக்கு மின்னஞ்சல் அனுப்பப்படும்.
+இந்த கோரிக்கையை நீங்கள் செய்யவில்லை என்றால், இந்த மின்னஞ்சலை புறக்கணிக்கலாம்.
   
 நன்றி,
 நீதி AI சட்ட குழு.
 """
     else:
-        subject = f"Needhi AI: Case Tracker Subscription Confirmed - {cnr}"
+        subject = f"Needhi AI: Verify your Case Tracker Subscription - {cnr}"
         body = f"""Dear {client_name},
   
-You have successfully subscribed to email alerts for CNR: {cnr} ({case_title}).
+Please verify your subscription to email alerts for CNR: {cnr} ({case_details.get('title')}) by clicking the link below:
+{confirm_url}
   
---- CASE TRACKER SUBSCRIPTION INFO ---
-Case Title: {case_title}
-Court: {case_details.get('court')}
-Current Stage: {case_details.get('current_stage')}
-Next Hearing Date: {case_details.get('next_hearing')} (Courtroom: {case_details.get('courtroom')})
-  
-You will receive automated notifications at {email} when the court logs new hearing stages or updates.
+If you did not request this, you can ignore this email.
   
 Thank you,
 Needhi AI Legal Suite.
 """
 
     recipients = [{"email": email, "name": client_name}]
-    email_sent, email_status = send_email_notification(recipients, subject, body)
-    
+    try:
+        email_sent, email_status = send_email_notification(recipients, subject, body)
+    except Exception as e:
+        logger.exception("Failed to send verification email")
+        email_sent, email_status = False, "Failed to send email"
+        
     return {
         "status": "success",
-        "message": "Subscription registered successfully",
+        "message": "Verification email sent successfully. Please confirm your subscription.",
         "email_sent": email_sent,
         "email_status": email_status
     }
+
+@app.get("/api/cases/confirm-subscription")
+def confirm_subscription(token: str):
+    if not token:
+        raise HTTPException(status_code=400, detail="Token is missing.")
+        
+    subscriptions_path = os.path.join(DATA_DIR, "subscriptions.json")
+    if not os.path.exists(subscriptions_path):
+        raise HTTPException(status_code=404, detail="No subscriptions found.")
+        
+    found_sub = None
+    with FileLock("subscriptions"):
+        try:
+            with open(subscriptions_path, "r", encoding="utf-8") as f:
+                subscriptions = json.load(f)
+        except Exception:
+            subscriptions = []
+            
+        for sub in subscriptions:
+            if sub.get("verification_token") == token:
+                sub["verified"] = True
+                sub["verification_token"] = None
+                found_sub = sub
+                break
+                
+        if found_sub:
+            try:
+                with open(subscriptions_path, "w", encoding="utf-8") as f:
+                    json.dump(subscriptions, f, indent=2, ensure_ascii=False)
+            except Exception as e:
+                logger.exception("Failed to update subscription status")
+                raise HTTPException(status_code=500, detail="Internal server error.")
+                
+    if not found_sub:
+        return Response(content="""
+        <html>
+        <head>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                .card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); padding: 2.5rem; border-radius: 1rem; border: 1px solid rgba(255,255,255,0.1); max-width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+                h1 { color: #f43f5e; margin-bottom: 1rem; font-size: 1.75rem; }
+                p { color: #cbd5e1; line-height: 1.5; font-size: 1rem; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>Verification Link Invalid</h1>
+                <p>This verification link is invalid, expired, or has already been used.</p>
+            </div>
+        </body>
+        </html>
+        """, media_type="text/html")
+        
+    cnr = found_sub.get("cnr")
+    email = decrypt_field(found_sub.get("email"))
+    client_name = decrypt_field(found_sub.get("client_name"))
+    language = found_sub.get("language")
+    
+    # Load case details
+    cases_path = os.path.join(DATA_DIR, "cases.json")
+    case_details = None
+    if os.path.exists(cases_path):
+        try:
+            with open(cases_path, "r", encoding="utf-8") as f:
+                cases = json.load(f)
+            for c in cases:
+                if c["cnr"].lower() == cnr.lower():
+                    case_details = c
+                    break
+        except Exception:
+            pass
+            
+    if case_details:
+        case_title = case_details.get("title", cnr)
+        case_title_tamil = case_details.get("tamil_title", case_title)
+        
+        if language == "Tamil":
+            subject = f"நீதி AI: வழக்கு கண்காணிப்பு சந்தா உறுதிசெய்யப்பட்டது - {cnr}"
+            body = f"""அன்புள்ள {client_name},
+      
+உங்கள் {cnr} ({case_title_tamil}) வழக்குகான மின்னஞ்சல் விழிப்பூட்டல்களுக்கு வெற்றிகரமாக குழுசேர்ந்துள்ளீர்கள்.
+      
+--- வழக்கு கண்காணிப்பு விவரங்கள் ---
+வழக்கு தலைப்பு: {case_title_tamil}
+நீதிமன்றம்: {case_details.get('tamil_court', case_details.get('court'))}
+தற்போதைய நிலை: {case_details.get('current_stage_tamil', case_details.get('current_stage'))}
+அடுத்த விசாரணை தேதி: {case_details.get('next_hearing')} (அறை: {case_details.get('courtroom')})
+      
+இந்த வழக்கில் புதிய தகவல்கள் அல்லது விசாரணை தேதிகள் புதுப்பிக்கப்படும்போது, {email} என்ற முகவரிக்கு மின்னஞ்சல் அனுப்பப்படும்.
+      
+நன்றி,
+நீதி AI சட்ட குழு.
+"""
+        else:
+            subject = f"Needhi AI: Case Tracker Subscription Confirmed - {cnr}"
+            body = f"""Dear {client_name},
+      
+You have successfully subscribed to email alerts for CNR: {cnr} ({case_title}).
+      
+--- CASE TRACKER SUBSCRIPTION INFO ---
+Case Title: {case_title}
+Court: {case_details.get('court')}
+Current Stage: {case_details.get('current_stage')}
+Next Hearing Date: {case_details.get('next_hearing')} (Courtroom: {case_details.get('courtroom')})
+      
+You will receive automated notifications at {email} when the court logs new hearing stages or updates.
+      
+Thank you,
+Needhi AI Legal Suite.
+"""
+        try:
+            send_email_notification([{"email": email, "name": client_name}], subject, body)
+        except Exception as e:
+            logger.exception("Failed to send confirmation email after verification")
+            
+    return Response(content=f"""
+    <html>
+    <head>
+        <style>
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+            .card {{ background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); padding: 2.5rem; border-radius: 1rem; border: 1px solid rgba(255,255,255,0.1); max-width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }}
+            h1 {{ color: #10b981; margin-bottom: 1rem; font-size: 1.75rem; }}
+            p {{ color: #cbd5e1; line-height: 1.5; font-size: 1rem; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1>Subscription Confirmed!</h1>
+            <p>Thank you, {client_name}. Your email alerts for case {cnr} have been successfully activated.</p>
+        </div>
+    </body>
+    </html>
+    """, media_type="text/html")
 
 @app.get("/api/cases")
 def get_cases(search: str = "", search_type: str = "CNR Number"):
@@ -859,8 +1152,16 @@ def get_lawyers(specialization: str = "", city: str = "", search: str = ""):
         
     return results
 
-@app.post("/api/book-lawyer")
+@app.post("/api/book-lawyer", dependencies=[Depends(check_rate_limit_data)])
 def book_lawyer(req: BookLawyerRequest):
+    # Validate date: must be today or in the future
+    try:
+        booking_date = datetime.strptime(req.date, "%Y-%m-%d").date()
+        if booking_date < date.today():
+            raise HTTPException(status_code=400, detail="Cannot book a consultation slot in the past.")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Expected YYYY-MM-DD.")
+
     # Load lawyers to validate ID and get details
     lawyers_path = os.path.join(DATA_DIR, "lawyers.json")
     if not os.path.exists(lawyers_path):
@@ -879,40 +1180,41 @@ def book_lawyer(req: BookLawyerRequest):
         raise HTTPException(status_code=404, detail="Lawyer not found")
         
     # Generate booking code
-    import os as _os
-    booking_code = "ND-" + str(_os.urandom(3).hex().upper())
+    booking_code = "ND-" + os.urandom(3).hex().upper()
     
-    # Save booking to bookings.json
+    # Save booking to bookings.json under thread-safe lock with encrypted PII
     bookings_path = os.path.join(DATA_DIR, "bookings.json")
-    bookings = []
-    if os.path.exists(bookings_path):
+    with FileLock("bookings"):
+        bookings = []
+        if os.path.exists(bookings_path):
+            try:
+                with open(bookings_path, "r", encoding="utf-8") as f:
+                    bookings = json.load(f)
+            except Exception:
+                bookings = []
+                
+        new_booking = {
+            "code": booking_code,
+            "lawyer_id": req.lawyer_id,
+            "lawyer_name": lawyer["name"],
+            "specialization": lawyer["specialization"],
+            "client_name": encrypt_field(req.client_name),
+            "client_email": encrypt_field(req.client_email),
+            "client_phone": encrypt_field(req.client_phone),
+            "date": req.date,
+            "slot": req.slot,
+            "details": encrypt_field(req.details),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        bookings.append(new_booking)
+        
         try:
-            with open(bookings_path, "r", encoding="utf-8") as f:
-                bookings = json.load(f)
-        except Exception:
-            bookings = []
-            
-    new_booking = {
-        "code": booking_code,
-        "lawyer_id": req.lawyer_id,
-        "lawyer_name": lawyer["name"],
-        "specialization": lawyer["specialization"],
-        "client_name": req.client_name,
-        "client_email": req.client_email,
-        "client_phone": req.client_phone,
-        "date": req.date,
-        "slot": req.slot,
-        "details": req.details,
-        "timestamp": datetime.now().isoformat()
-    }
-    
-    bookings.append(new_booking)
-    
-    try:
-        with open(bookings_path, "w", encoding="utf-8") as f:
-            json.dump(bookings, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save booking: {e}")
+            with open(bookings_path, "w", encoding="utf-8") as f:
+                json.dump(bookings, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            logger.exception("Failed to save booking")
+            raise HTTPException(status_code=500, detail="Failed to save booking due to database error.")
         
     # Construct Client Email Content
     client_subject = f"Needhi AI: Legal Consultation Ticket - {booking_code}"
@@ -975,11 +1277,16 @@ Thank you for using Needhi AI.
     client_recipients = [{"email": req.client_email, "name": req.client_name}]
     advocate_recipients = [{"email": lawyer["email"], "name": lawyer["name"]}]
     
-    email_sent, email_status = send_email_notification(client_recipients, client_subject, client_body)
+    try:
+        email_sent, email_status = send_email_notification(client_recipients, client_subject, client_body)
+    except Exception:
+        logger.exception("Failed to send client email notification")
+        email_sent, email_status = False, "Failed to send email"
+        
     try:
         send_email_notification(advocate_recipients, advocate_subject, advocate_body)
-    except Exception as e:
-        print(f"Failed to send advocate email notification: {e}")
+    except Exception:
+        logger.exception("Failed to send advocate email notification")
         
     return {
         "status": "success",
@@ -999,7 +1306,7 @@ Thank you for using Needhi AI.
         }
     }
 
-@app.post("/api/generate-fir")
+@app.post("/api/generate-fir", dependencies=[Depends(check_rate_limit_ai)])
 def generate_fir(req: FIRRequest):
     ps_line = f"Police Station: {req.ps}" if req.ps else "Police Station: ________________________"
     name_line = req.name if req.name else "________________________"
@@ -1042,70 +1349,7 @@ def generate_fir(req: FIRRequest):
                 "- Causing death by negligence: Section 106(1) of BNS (formerly Section 304A of IPC) [Only include if there is a fatality/death mentioned in the narrative]\n"
             )
             
-    prompt = f"""You are Needhi AI, an elite Indian legal counsel. Generate a highly professional, formal, and legally precise written complaint addressed to the Station House Officer (SHO) to register a First Information Report (FIR) under Section 173 of the Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) (formerly Section 154 of the Code of Criminal Procedure, 1973).
-    
-    Any details that are not provided or are blank must be represented in the document as a clearly labeled blank underline (e.g., "________________________") so that it can be printed and filled in manually. Do not use generic bracketed placeholders (like '[Your Address]' or similar); always use blank underlines.
-    
-    {category_instructions}
-    
-    Incident Details Provided:
-    - Incident Narrative/Issue: {req.issue}
-    - State: {req.state or '________________________'}
-    - Police Station: {req.ps or '________________________'}
-    - Complainant Name: {name_line}
-    
-    Structure the document as a standard Indian Police complaint with the following sections, formatted using clean, professional markdown:
-    
-    1. **OFFICIAL ADDRESS HEADER**:
-       To,
-       The Station House Officer,
-       {ps_line},
-       District: ________________________,
-       {req.state or 'State: ________________________'}
-       
-    2. **SUBJECT LINE**: 
-       Must be highly formal, stating: "SUBJECT: Written Complaint for registration of FIR under Section 173 of the BNSS, 2023, regarding the offences committed against the Complainant on [Date/Time placeholder]."
-       
-    3. **COMPLAINANT DETAILS**:
-       State the Complainant's name, parentage/husband's name (father's/husband's name: ________________________), age (________________________ years), residential address (________________________), contact number (________________________), and nationality (________________________).
-       
-    4. **ACCUSED DETAILS**:
-       Provide details of the accused. If known, list their names, descriptions, or addresses. If unknown, state "Unidentified/Unknown persons (to be identified during investigation)".
-       
-    5. **CHRONOLOGICAL NARRATIVE OF THE INCIDENT**:
-       Draft a detailed, factual, and legally precise narration of the incident based on the user's issue. Use formal legal vocabulary. Ensure the chronological chain of events is clear (Date, Time, and Specific Location placeholders included).
-       
-    6. **SPECIFIC OFFENCES & LEGAL SECTIONS**:
-       Explicitly state which offences have been committed. For each offence, provide a brief paragraph explaining how the acts constitute the offence, citing both the **new Bharatiya Nyaya Sanhita, 2023 (BNS)** section and the **corresponding old Indian Penal Code, 1860 (IPC)** section in parentheses for full legal compatibility. E.g.:
-       - Voluntarily causing hurt: Section 115(2) BNS (formerly Section 323 IPC)
-       - Cheating: Section 318 BNS (formerly Section 420 IPC)
-       - Theft: Section 303 BNS (formerly Section 379 IPC)
-       - Criminal Intimidation: Section 351 BNS (formerly Section 506 IPC)
-       - Criminal Conspiracy: Section 61 BNS (formerly Section 120B IPC)
-       - Criminal Trespass: Section 329 BNS (formerly Section 447 IPC)
-       Ensure the sections cited are 100% accurate based on the legal definitions.
-       
-    7. **RELIEF SOUGHT / ACTION REQUESTED**:
-       A formal prayer requesting the SHO to:
-       a) Register a First Information Report (FIR) under Section 173 of the BNSS, 2023, against the accused persons.
-       b) Conduct a thorough investigation and secure the arrest of the accused.
-       c) Recovery of any stolen property or securing of material evidence.
-       
-    8. **DECLARATION & SIGNATURE BLOCKS**:
-       - Place: ________________________
-       - Date: ________________________
-       - Complainant Signature block (Signature: ________________________, Name: {name_line})
-       
-    Tone: Extremely formal, authoritative, and structured according to standard legal practice in Indian police stations. Output only the drafted complaint. Do not add any conversational remarks or notes outside the draft."""
-
-    try:
-        response, _ = generate_gemini_content(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=2048))
-        return {"draft": response.text}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/generate-template")
+    system_instr@app.post("/api/generate-template", dependencies=[Depends(check_rate_limit_ai)])
 def generate_template(req: TemplateRequest):
     special_guidelines = ""
     tt = req.template_type
@@ -1380,7 +1624,7 @@ def generate_pdf(req: PDFGenerateRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/chat-doc")
+@app.post("/api/chat-doc", dependencies=[Depends(check_rate_limit_ai)])
 async def chat_doc_endpoint(req: ChatDocRequest):
     doc_text = req.doc_text
     query = req.query
@@ -1401,8 +1645,8 @@ async def chat_doc_endpoint(req: ChatDocRequest):
             history_block = f"\nPrevious conversation history:\n{history_block}\n"
 
     if language == "Tamil":
-        prompt = f"""System: நீங்கள் 'நீதி AI' — இந்திய சட்டத்தில் நிபுணத்துவம் வாய்ந்த AI சட்ட உதவியாளர்.
-பயனர் ஒரு சட்ட ஆவணத்தை பதிவேற்றியுள்ளார். அதன் உரை கீழே கொடுக்கப்பட்டுள்ளது:
+        system_instruction = "நீங்கள் 'நீதி AI' — இந்திய சட்டத்தில் நிபுணத்துவம் வாய்ந்த AI சட்ட உதவியாளர். பயனர் வழங்கிய சட்ட ஆவணத்தின் பின்னணியில் இருந்து பயனரின் கேள்விக்கு நேரடியாகவும், தெளிவாகவும் எளிய தமிழில் பதிலளிக்கவும்."
+        prompt = f"""ஆவணத்தின் உரை (Document Text):
 --- ஆவணத்தின் உரை (Document Text) ---
 {doc_text[:12000]}
 --- முடிவு ---
@@ -1411,10 +1655,10 @@ async def chat_doc_endpoint(req: ChatDocRequest):
 பயனர் கேள்வி: '{query}'
 
 பணி (TASK):
-ஆவணத்தின் பின்னணியில் இருந்து பயனரின் கேள்விக்கு நேரடியாகவும், தெளிவாகவும் எளிய தமிழில் பதிலளிக்கவும். தேவைப்பட்டால் ஆவணத்தின் குறிப்பிட்ட பிரிவுகள் அல்லது ஷரத்துக்களை சுட்டிக்காட்டவும். ஆவணத்தில் இல்லாத தகவலைப் பற்றி கேள்வி இருந்தால், 'கொடுக்கப்பட்ட ஆவணத்தில் இதைப் பற்றிய தகவல்கள் இல்லை' என்று கூறிவிட்டு பொதுவான சட்ட பின்னணியை விளக்கவும்."""
+ஆவணத்தின் பின்னணியில் இருந்து பயனரின் கேள்விக்கு எளிய தமிழில் பதிலளிக்கவும். தேவைப்பட்டால் ஆவணத்தின் குறிப்பிட்ட பிரிவுகள் அல்லது ஷரத்துக்களை சுட்டிக்காட்டவும். ஆவணத்தில் இல்லாத தகவலைப் பற்றி கேள்வி இருந்தால், 'கொடுக்கப்பட்ட ஆவணத்தில் இதைப் பற்றிய தகவல்கள் இல்லை' என்று கூறிவிட்டு பொதுவான சட்ட பின்னணியை விளக்கவும்."""
     else:
-        prompt = f"""System: You are 'Needhi AI' — an expert AI Legal Assistant specializing in Indian Law.
-The user has uploaded a legal document. Here is the text of the document:
+        system_instruction = "You are 'Needhi AI' — an expert AI Legal Assistant specializing in Indian Law. Answer the user's question directly, clearly, and concisely in English, using the context of the uploaded document."
+        prompt = f"""Here is the text of the document:
 --- DOCUMENT START ---
 {doc_text[:12000]}
 --- DOCUMENT END ---
@@ -1423,13 +1667,14 @@ The user has uploaded a legal document. Here is the text of the document:
 User Query: '{query}'
 
 TASK:
-Answer the user's question directly, clearly, and concisely in English, using the context of the uploaded document. Reference specific clauses or sections of the document where relevant. If the question is not answerable from the document, state that clearly, but provide general legal information if applicable."""
+Answer the user's question using the context of the uploaded document. Reference specific clauses or sections of the document where relevant. If the question is not answerable from the document, state that clearly, but provide general legal information if applicable."""
 
     try:
         response, used_model = generate_gemini_content(
             prompt,
             generation_config=genai.types.GenerationConfig(max_output_tokens=2048),
-            stream=True
+            stream=True,
+            system_instruction=system_instruction
         )
         
         async def event_generator():
@@ -1444,17 +1689,16 @@ Answer the user's question directly, clearly, and concisely in English, using th
                     
         return StreamingResponse(event_generator(), media_type="text/plain")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Error in chat_doc_endpoint")
+        raise HTTPException(status_code=500, detail="An internal error occurred during document chat.")
 
-@app.post("/api/predict-outcome")
+@app.post("/api/predict-outcome", dependencies=[Depends(check_rate_limit_ai)])
 def predict_outcome(req: PredictOutcomeRequest):
     evidence_list = ", ".join(req.evidence) if req.evidence else "No direct evidence specified"
     
     if req.language == "Tamil":
-        prompt = f"""System: நீங்கள் ஒரு இந்திய சட்ட நிபுணர் மற்றும் வழக்கறிஞர்.
-பயனர் வழங்கிய வழக்குகளின் விவரங்களின் அடிப்படையில் அதன் சட்டபூர்வ விளைவுகளை துல்லியமாக கணிக்கவும்.
-
-வழக்கின் விவரங்கள்:
+        system_instruction = "நீங்கள் ஒரு இந்திய சட்ட நிபுணர் மற்றும் வழக்கறிஞர். பயனர் வழங்கிய வழக்குகளின் விவரங்களின் அடிப்படையில் அதன் சட்டபூர்வ விளைவுகளை துல்லியமாக கணிக்கவும்."
+        prompt = f"""வழக்கின் விவரங்கள்:
 - குற்றம்/சட்ட பிரிவு: {req.offense}
 - நடந்த சம்பவம்: {req.narrative}
 - ஆதாரங்கள்: {evidence_list}
@@ -1470,10 +1714,8 @@ def predict_outcome(req: PredictOutcomeRequest):
 5. **சட்டபூர்வ மறுப்புரை (Disclaimer)**: "மறுப்புரை: இது AI தொழில்நுட்பத்தால் உருவாக்கப்பட்ட ஒரு தற்காலிக கணிப்பு மட்டுமே. இது முறையான சட்ட ஆலோசனையாக கருதப்படக் கூடாது. உங்கள் வழக்கிற்கு தகுதியான வழக்கறிஞரை அணுகவும்."
 """
     else:
-        prompt = f"""System: You are an expert Indian legal archivist and counsel.
-Predict the likely legal outcomes based on the following case details.
-
-Case Parameters:
+        system_instruction = "You are an expert Indian legal archivist and counsel. Predict the likely legal outcomes based on the provided case details."
+        prompt = f"""Case Parameters:
 - Offense/Dispute: {req.offense}
 - Factual Narrative: {req.narrative}
 - Evidence Available: {evidence_list}
@@ -1490,18 +1732,21 @@ Generate a detailed, objective, and structured case outcome prediction report co
 """
 
     try:
-        response, _ = generate_gemini_content(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=3076))
+        response, _ = generate_gemini_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(max_output_tokens=3076),
+            system_instruction=system_instruction
+        )
         return {"prediction": response.text}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Error in predict_outcome")
+        raise HTTPException(status_code=500, detail="An internal error occurred during outcome prediction.")
 
-@app.post("/api/simplify-text")
+@app.post("/api/simplify-text", dependencies=[Depends(check_rate_limit_ai)])
 def simplify_text(req: SimplifyTextRequest):
     if req.target_language == "Tamil":
-        prompt = f"""System: நீங்கள் ஒரு தமிழ் சட்ட மொழிபெயர்ப்பாளர் மற்றும் எளிமைப்படுத்துபவர்.
-பயனர் வழங்கிய கடினமான அல்லது சிக்கலான சட்ட உரையை (அறிவிப்பு, ஷரத்து, நீதிமன்ற உத்தரவு) எளிய மக்கள் புரிந்து கொள்ளும் எளிய தமிழில் சுருக்கி விளக்கவும்.
-
-சட்ட உரை snippet:
+        system_instruction = "நீங்கள் ஒரு தமிழ் சட்ட மொழிபெயர்ப்பாளர் மற்றும் எளிமைப்படுத்துபவர். பயனர் வழங்கும் சட்ட உரையை எளிய தமிழில் சுருக்கி விளக்கவும்."
+        prompt = f"""சட்ட உரை snippet:
 ---
 {req.text}
 ---
@@ -1514,10 +1759,8 @@ def simplify_text(req: SimplifyTextRequest):
 4. **கடினமான சட்ட சொற்களின் பொருள் (Legal Terms Explained)**: (உரையில் உள்ள கடினமான ஆங்கில/சட்ட சொற்களுக்கு எளிய தமிழ் விளக்கம்)
 """
     else:
-        prompt = f"""System: You are an expert legal simplifier.
-Translate and simplify the following complex legal text snippet (e.g. a contract clause, legal notice, or court order) into plain, simple English that a layperson can easily understand.
-
-Legal text snippet:
+        system_instruction = "You are an expert legal simplifier. Translate and simplify the complex legal text snippet into plain, simple English that a layperson can easily understand."
+        prompt = f"""Legal text snippet:
 ---
 {req.text}
 ---
@@ -1531,10 +1774,22 @@ Provide a clear, beautiful, and structured plain-language translation under the 
 """
 
     try:
-        response, _ = generate_gemini_content(prompt, generation_config=genai.types.GenerationConfig(max_output_tokens=3076))
+        response, _ = generate_gemini_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(max_output_tokens=3076),
+            system_instruction=system_instruction
+        )
         return {"simplified": response.text}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Error in simplify_text")
+        raise HTTPException(status_code=500, detail="An internal error occurred during text simplification.")
+
+@app.on_event("startup")
+def startup_event():
+    bookings_path = os.path.join(DATA_DIR, "bookings.json")
+    subscriptions_path = os.path.join(DATA_DIR, "subscriptions.json")
+    purge_old_records(bookings_path, days=90)
+    purge_old_records(subscriptions_path, days=90)
 
 # Serve React static files in production if dist exists
 dist_path = os.path.join(ROOT_DIR, "frontend", "dist")

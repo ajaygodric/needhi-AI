@@ -104,6 +104,17 @@ const LawyerBooking = ({ language }) => {
     e.preventDefault();
     if (!bookingDate || !bookingSlot || !clientName || !clientEmail || !clientPhone) return;
 
+    // Enforce Indian 10-digit mobile number format
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(clientPhone)) {
+      setBookingError(
+        language === "Tamil"
+          ? "❌ பிழை: செல்லுபடியாகும் 10 இலக்க இந்திய கைபேசி எண்ணை உள்ளிடவும்."
+          : "❌ Error: Please enter a valid 10-digit Indian mobile number."
+      );
+      return;
+    }
+
     setIsBookingLoading(true);
     setBookingError("");
 
@@ -358,6 +369,7 @@ const LawyerBooking = ({ language }) => {
                         type="date"
                         className="input-control"
                         required
+                        min={new Date().toISOString().split("T")[0]}
                         value={bookingDate}
                         onChange={(e) => setBookingDate(e.target.value)}
                       />

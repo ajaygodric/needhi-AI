@@ -23,13 +23,23 @@ const BnsLookup = ({ language }) => {
     { id: "State Sovereignty", label: { English: "State Sovereignty", Tamil: "தேச பாதுகாப்பு" } },
   ];
 
-  // Fetch results when search term or category changes
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
+
+  // Debounce search term changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Fetch results when debounced search term or category changes
   useEffect(() => {
     let active = true;
     const fetchResults = async () => {
       setIsLoading(true);
       try {
-        const data = await bnsLookup(searchTerm, activeCategory);
+        const data = await bnsLookup(debouncedSearchTerm, activeCategory);
         if (active) {
           setResults(data);
         }
@@ -45,7 +55,7 @@ const BnsLookup = ({ language }) => {
     return () => {
       active = false;
     };
-  }, [searchTerm, activeCategory]);
+  }, [debouncedSearchTerm, activeCategory]);
 
   // Handle BNS Ask AI
   const handleAiLookup = async () => {
