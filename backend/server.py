@@ -1389,7 +1389,75 @@ def generate_fir(req: FIRRequest):
                 "- Causing death by negligence: Section 106(1) of BNS (formerly Section 304A of IPC) [Only include if there is a fatality/death mentioned in the narrative]\n"
             )
             
-    system_instr@app.post("/api/generate-template", dependencies=[Depends(check_rate_limit_ai)])
+    system_instruction = (
+        "You are Needhi AI, an elite Indian legal counsel. "
+        "Generate a highly professional, formal, and legally precise written complaint addressed to the "
+        "Station House Officer (SHO) to register a First Information Report (FIR) under Section 173 "
+        "of the Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) (formerly Section 154 of the Code of Criminal Procedure, 1973)."
+    )
+
+    prompt = f"""Draft a First Information Report (FIR) complaint based on the following details.
+    
+    Any details that are not provided or are blank must be represented in the document as a clearly labeled blank underline (e.g., "________________________") so that it can be printed and filled in manually. Do not use generic bracketed placeholders (like '[Your Address]' or similar); always use blank underlines.
+    
+    Incident Details Provided:
+    - Incident Narrative/Issue: {req.issue}
+    - State: {req.state or '________________________'}
+    - Police Station: {req.ps or '________________________'}
+    - Complainant Name: {name_line}
+    {category_instructions}
+    
+    Structure the document as a standard Indian Police complaint with the following sections, formatted using clean, professional markdown:
+    
+    1. **OFFICIAL ADDRESS HEADER**:
+       To,
+       The Station House Officer,
+       {ps_line},
+       District: ________________________,
+       {req.state or 'State: ________________________'}
+       
+    2. **SUBJECT LINE**: 
+       Must be highly formal, stating: "SUBJECT: Written Complaint for registration of FIR under Section 173 of the BNSS, 2023, regarding the offences committed against the Complainant on [Date/Time placeholder]."
+       
+    3. **COMPLAINANT DETAILS**:
+       State the Complainant's name, parentage/husband's name (father's/husband's name: ________________________), age (________________________ years), residential address (________________________), contact number (________________________), and nationality (________________________).
+       
+    4. **ACCUSED DETAILS**:
+       Provide details of the accused. If known, list their names, descriptions, or addresses. If unknown, state "Unidentified/Unknown persons (to be identified during investigation)".
+       
+    5. **CHRONOLOGICAL NARRATIVE OF THE INCIDENT**:
+       Draft a detailed, factual, and legally precise narration of the incident based on the user's issue. Use formal legal vocabulary. Ensure the chronological chain of events is clear (Date, Time, and Specific Location placeholders included).
+       
+    6. **SPECIFIC OFFENCES & LEGAL SECTIONS**:
+       State the specific offences committed by the accused. List the relevant legal sections (providing both BNS 2023 and legacy IPC equivalents). Example:
+       - Theft: Section 303 BNS (formerly Section 379 IPC)
+       Ensure the sections cited are 100% accurate based on the legal definitions.
+       
+    7. **RELIEF SOUGHT / ACTION REQUESTED**:
+       A formal prayer requesting the SHO to:
+       a) Register a First Information Report (FIR) under Section 173 of the BNSS, 2023, against the accused persons.
+       b) Conduct a thorough investigation and secure the arrest of the accused.
+       c) Recovery of any stolen property or securing of material evidence.
+       
+    8. **DECLARATION & SIGNATURE BLOCKS**:
+       - Place: ________________________
+       - Date: ________________________
+       - Complainant Signature block (Signature: ________________________, Name: {name_line})
+       
+    Tone: Extremely formal, authoritative, and structured according to standard legal practice in Indian police stations. Output only the drafted complaint. Do not add any conversational remarks or notes outside the draft."""
+
+    try:
+        response, _ = generate_gemini_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(max_output_tokens=2048),
+            system_instruction=system_instruction
+        )
+        return {"draft": response.text}
+    except Exception as e:
+        logger.exception("Error in generate_fir")
+        raise HTTPException(status_code=500, detail="An internal error occurred during FIR generation.")
+
+@app.post("/api/generate-template", dependencies=[Depends(check_rate_limit_ai)])
 def generate_template(req: TemplateRequest):
     special_guidelines = ""
     tt = req.template_type
