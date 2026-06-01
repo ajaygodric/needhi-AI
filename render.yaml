@@ -28,3 +28,8 @@ services:
         sync: false # Optional: Enter SMTP username/email
       - key: SMTP_PASSWORD
         sync: false # Optional: Enter SMTP app password
+    disk:
+      name: needhi-data
+      mountPath: /opt/needhi-data
+      sizeGB: 1
+

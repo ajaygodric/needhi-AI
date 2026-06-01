@@ -35,7 +35,15 @@ except ImportError:
 
 # Root paths
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(ROOT_DIR, "backend", "data")
+STATIC_DATA_DIR = os.path.join(ROOT_DIR, "backend", "data")
+
+# Detect persistent storage mount directory (e.g. Render persistent disk)
+PERSISTENT_DIR = "/opt/needhi-data"
+if os.path.exists(PERSISTENT_DIR) and os.access(PERSISTENT_DIR, os.W_OK):
+    DATA_DIR = PERSISTENT_DIR
+else:
+    DATA_DIR = STATIC_DATA_DIR
+
 DATABASE_FILE = os.path.join(DATA_DIR, "needhi.db")
 
 def load_secrets_toml() -> dict:
@@ -114,10 +122,20 @@ def init_db():
     )
     """)
     
+    # Create rate_limits table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS rate_limits (
+        ip TEXT NOT NULL,
+        endpoint TEXT NOT NULL,
+        timestamp REAL NOT NULL
+    )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_rate_limits ON rate_limits (ip, endpoint, timestamp)")
+    
     # Migration from cases.json
     cursor.execute("SELECT COUNT(*) FROM cases")
     if cursor.fetchone()[0] == 0:
-        cases_path = os.path.join(DATA_DIR, "cases.json")
+        cases_path = os.path.join(STATIC_DATA_DIR, "cases.json")
         if os.path.exists(cases_path):
             try:
                 with open(cases_path, "r", encoding="utf-8") as f:
@@ -137,7 +155,7 @@ def init_db():
     # Migration from lawyers.json
     cursor.execute("SELECT COUNT(*) FROM lawyers")
     if cursor.fetchone()[0] == 0:
-        lawyers_path = os.path.join(DATA_DIR, "lawyers.json")
+        lawyers_path = os.path.join(STATIC_DATA_DIR, "lawyers.json")
         if os.path.exists(lawyers_path):
             try:
                 with open(lawyers_path, "r", encoding="utf-8") as f:
@@ -157,7 +175,7 @@ def init_db():
     # Migration from bookings.json
     cursor.execute("SELECT COUNT(*) FROM bookings")
     if cursor.fetchone()[0] == 0:
-        bookings_path = os.path.join(DATA_DIR, "bookings.json")
+        bookings_path = os.path.join(STATIC_DATA_DIR, "bookings.json")
         if os.path.exists(bookings_path):
             try:
                 with open(bookings_path, "r", encoding="utf-8") as f:
@@ -179,7 +197,7 @@ def init_db():
     # Migration from subscriptions.json
     cursor.execute("SELECT COUNT(*) FROM subscriptions")
     if cursor.fetchone()[0] == 0:
-        subscriptions_path = os.path.join(DATA_DIR, "subscriptions.json")
+        subscriptions_path = os.path.join(STATIC_DATA_DIR, "subscriptions.json")
         if os.path.exists(subscriptions_path):
             try:
                 with open(subscriptions_path, "r", encoding="utf-8") as f:
@@ -210,13 +228,34 @@ def get_fernet():
         secrets = load_secrets_toml()
         key_str = secrets.get("PII_ENCRYPTION_KEY")
         
-    if not key_str:
-        logger.warning("PII_ENCRYPTION_KEY environment variable not set. Falling back to development key!")
-        return Fernet(DEV_PII_KEY)
+    if key_str:
+        try:
+            return Fernet(key_str.encode())
+        except Exception as e:
+            logger.error(f"Invalid PII_ENCRYPTION_KEY format: {e}. Trying fallback strategy.")
+            
+    # Dynamic persistent key fallback strategy:
+    # Attempt to read/write a dynamically generated unique key in DATA_DIR
+    key_file = os.path.join(DATA_DIR, ".pii_key.key")
+    if os.path.exists(key_file):
+        try:
+            with open(key_file, "rb") as f:
+                persistent_key = f.read().strip()
+            if persistent_key:
+                return Fernet(persistent_key)
+        except Exception as e:
+            logger.error(f"Failed to read persistent PII key from {key_file}: {e}")
+            
+    # Try generating a new persistent key
     try:
-        return Fernet(key_str.encode())
+        new_key = Fernet.generate_key()
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(key_file, "wb") as f:
+            f.write(new_key)
+        logger.info(f"Generated a new unique persistent PII encryption key at: {key_file}")
+        return Fernet(new_key)
     except Exception as e:
-        logger.error(f"Invalid PII_ENCRYPTION_KEY format: {e}. Using development fallback.")
+        logger.warning(f"Could not save persistent key to {key_file}: {e}. Falling back to default DEV_PII_KEY.")
         return Fernet(DEV_PII_KEY)
 
 def encrypt_field(value: str) -> str:
@@ -258,32 +297,47 @@ def purge_old_records_db(days: int = 90):
     except Exception as e:
         logger.error(f"Failed to purge old records from SQLite: {e}")
 
-# --- Memory-Based sliding window Rate Limiter ---
-class SlidingWindowRateLimiter:
-    def __init__(self, limit: int, window: int):
-        self.limit = limit
-        self.window = window
-        self.requests = defaultdict(list)
+# --- SQLite-Backed sliding window Rate Limiter ---
+def check_db_rate_limit(client_ip: str, endpoint: str, limit: int, window: int) -> bool:
+    """
+    Checks if a client IP is allowed to access an endpoint based on rate limit.
+    Uses SQLite database to share limits across multiple workers/processes.
+    """
+    now = time.time()
+    cutoff = now - window
+    try:
+        conn = sqlite3.connect(DATABASE_FILE)
+        cursor = conn.cursor()
+        # Delete old rate limit logs for this IP/endpoint
+        cursor.execute("DELETE FROM rate_limits WHERE ip = ? AND endpoint = ? AND timestamp < ?", (client_ip, endpoint, cutoff))
         
-    def is_allowed(self, client_ip: str) -> bool:
-        now = time.time()
-        self.requests[client_ip] = [t for t in self.requests[client_ip] if now - t < self.window]
-        if len(self.requests[client_ip]) >= self.limit:
+        # Count recent requests
+        cursor.execute("SELECT COUNT(*) FROM rate_limits WHERE ip = ? AND endpoint = ?", (client_ip, endpoint))
+        count = cursor.fetchone()[0]
+        
+        if count >= limit:
+            conn.commit()
+            conn.close()
             return False
-        self.requests[client_ip].append(now)
+            
+        # Log this request
+        cursor.execute("INSERT INTO rate_limits (ip, endpoint, timestamp) VALUES (?, ?, ?)", (client_ip, endpoint, now))
+        conn.commit()
+        conn.close()
         return True
-
-ai_limiter = SlidingWindowRateLimiter(limit=5, window=60)
-data_limiter = SlidingWindowRateLimiter(limit=20, window=60)
+    except Exception as e:
+        logger.error(f"Error checking rate limits in SQLite: {e}")
+        # Fail open under database errors so users aren't locked out of the app
+        return True
 
 def check_rate_limit_ai(request: Request):
     client_ip = request.client.host if request.client else "unknown"
-    if not ai_limiter.is_allowed(client_ip):
+    if not check_db_rate_limit(client_ip, "ai", limit=5, window=60):
         raise HTTPException(status_code=429, detail="Too many requests. Please try again in a minute.")
 
 def check_rate_limit_data(request: Request):
     client_ip = request.client.host if request.client else "unknown"
-    if not data_limiter.is_allowed(client_ip):
+    if not check_db_rate_limit(client_ip, "data", limit=20, window=60):
         raise HTTPException(status_code=429, detail="Too many requests. Please try again in a minute.")
 
 app = FastAPI(title="Needhi AI Backend", version="1.0.0")
@@ -829,7 +883,7 @@ def bns_lookup(req: BnsLookupRequest):
     category = req.category
     
     # Load JSON database
-    ipc_bns_path = os.path.join(DATA_DIR, "ipc_bns.json")
+    ipc_bns_path = os.path.join(STATIC_DATA_DIR, "ipc_bns.json")
     if not os.path.exists(ipc_bns_path):
         return []
         
@@ -916,7 +970,7 @@ Return only a valid JSON array of objects. Do not wrap in markdown or backticks.
         logger.exception("BNS AI comparison failed, falling back to local search")
         
     # Local fallback
-    ipc_bns_path = os.path.join(DATA_DIR, "ipc_bns.json")
+    ipc_bns_path = os.path.join(STATIC_DATA_DIR, "ipc_bns.json")
     if os.path.exists(ipc_bns_path):
         try:
             with open(ipc_bns_path, "r", encoding="utf-8") as f:
@@ -1892,9 +1946,11 @@ Provide a clear, beautiful, and structured plain-language translation under the 
         logger.exception("Error in simplify_text")
         raise HTTPException(status_code=500, detail="An internal error occurred during text simplification.")
 
+# Initialize database on module load to guarantee table existence under all test/import contexts
+init_db()
+
 @app.on_event("startup")
 def startup_event():
-    init_db()
     purge_old_records_db(days=90)
 
 # Serve React static files in production if dist exists
