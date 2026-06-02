@@ -219,9 +219,39 @@ def init_db():
     finally:
         conn.close()
 
+# --- Input Sanitization & Whitelisting Helpers ---
+def sanitize_input_dict(input_dict: Optional[dict], allowed_keys: set) -> dict:
+    if not input_dict:
+        return {}
+    
+    sanitized = {}
+    jailbreak_phrases = [
+        "ignore above",
+        "ignore previous",
+        "system override",
+        "you are now",
+        "bypass",
+        "ignore the instructions",
+        "ignore all instructions"
+    ]
+    
+    for k, v in input_dict.items():
+        if k not in allowed_keys:
+            continue
+            
+        if isinstance(v, str):
+            val_lower = v.lower()
+            if any(phrase in val_lower for phrase in jailbreak_phrases):
+                sanitized[k] = "[CLEANED]"
+            else:
+                # Truncate value to a safe length (1000 characters)
+                sanitized[k] = v[:1000]
+        else:
+            sanitized[k] = v
+            
+    return sanitized
+
 # --- PII Encryption Helpers ---
-# Secure default Fernet key for local development fallback
-DEV_PII_KEY = b"f1K7kUvT8pX0rY2s3tU4vW5x6y7z8A9b0C1d2E3f4G5=" # Fernet-compliant 32-byte key
 
 def get_fernet():
     key_str = os.environ.get("PII_ENCRYPTION_KEY")
@@ -233,9 +263,9 @@ def get_fernet():
         try:
             return Fernet(key_str.encode())
         except Exception as e:
-            logger.error(f"Invalid PII_ENCRYPTION_KEY format: {e}. Trying fallback strategy.")
+            logger.error(f"Invalid PII_ENCRYPTION_KEY format: {e}. Trying persistent key file.")
             
-    # Dynamic persistent key fallback strategy:
+    # Dynamic persistent key strategy:
     # Attempt to read/write a dynamically generated unique key in DATA_DIR
     key_file = os.path.join(DATA_DIR, ".pii_key.key")
     if os.path.exists(key_file):
@@ -256,8 +286,14 @@ def get_fernet():
         logger.info(f"Generated a new unique persistent PII encryption key at: {key_file}")
         return Fernet(new_key)
     except Exception as e:
-        logger.warning(f"Could not save persistent key to {key_file}: {e}. Falling back to default DEV_PII_KEY.")
-        return Fernet(DEV_PII_KEY)
+        raise RuntimeError(
+            f"FATAL: Cannot initialize PII encryption. Set the PII_ENCRYPTION_KEY environment variable "
+            f"or ensure DATA_DIR ({DATA_DIR}) is writable so a persistent key can be generated. "
+            f"Original error: {e}"
+        )
+
+# Initialize PII encryption at module load time to fail-fast/halt startup if key is missing/unwritable
+get_fernet()
 
 def encrypt_field(value: str) -> str:
     if not value:
@@ -1431,6 +1467,19 @@ def generate_fir(req: FIRRequest):
     category_instructions = ""
     valid_categories = {"Domestic Violence", "Cyber Fraud", "Property Dispute", "Motor Accident"}
     if req.category in valid_categories:
+        # Whitelist fields to prevent prompt injection
+        allowed_fields = set()
+        if req.category == "Domestic Violence":
+            allowed_fields = {"relationship", "abuseType", "frequency", "medicalExam", "dowryDetails"}
+        elif req.category == "Cyber Fraud":
+            allowed_fields = {"amount", "transactionTime", "txnId", "suspectInfo", "modusOperandi", "cyberCellId"}
+        elif req.category == "Property Dispute":
+            allowed_fields = {"propertyLocation", "documentNo", "disputeNature", "ownershipDoc", "disputeDate", "damageDetails"}
+        elif req.category == "Motor Accident":
+            allowed_fields = {"victimVehicle", "accusedVehicle", "injuryNature", "driverDetails", "hospitalName", "negligenceType"}
+            
+        req.category_fields = sanitize_input_dict(req.category_fields, allowed_fields)
+        
         fields_desc = ""
         if req.category_fields:
             fields_desc = "\n".join([f"- {k}: {v}" for k, v in req.category_fields.items() if v])
@@ -1538,6 +1587,37 @@ def generate_fir(req: FIRRequest):
 def generate_template(req: TemplateRequest):
     special_guidelines = ""
     tt = req.template_type
+    
+    # Whitelist template fields to prevent prompt injection
+    allowed_fields = set()
+    if tt == "Rent Agreement":
+        allowed_fields = {"landlord", "tenant", "address", "rent", "deposit", "duration"}
+    elif tt == "Legal Notice":
+        allowed_fields = {"sender", "receiver", "sender_addr", "receiver_addr", "subject", "details"}
+    elif tt == "Affidavit":
+        allowed_fields = {"name", "age", "state", "address", "content"}
+    elif tt == "Bail Application":
+        allowed_fields = {"accused", "court", "case_no", "ps", "grounds"}
+    elif tt == "Consumer Complaint":
+        allowed_fields = {"complainant", "opposite_party", "complainant_addr", "opposite_addr", "amount", "date", "complaint"}
+    elif tt == "Non-Disclosure Agreement (NDA)":
+        allowed_fields = {"disclosing_party", "receiving_party", "term_years", "jurisdiction", "purpose"}
+    elif tt == "Promissory Note":
+        allowed_fields = {"borrower", "lender", "amount", "interest_rate", "due_date", "city_state"}
+    elif tt == "Power of Attorney":
+        allowed_fields = {"principal", "agent", "principal_addr", "agent_addr", "property_schedule", "powers"}
+    elif tt == "Counter-Notice":
+        allowed_fields = {"sender", "receiver", "sender_addr", "receiver_addr", "original_notice_date", "original_claims", "counter_details"}
+    elif tt == "RTI Application":
+        allowed_fields = {"name", "address", "authority", "authority_addr", "information_sought", "period"}
+    elif tt == "Police Commissioner Complaint":
+        allowed_fields = {"complainant", "complainant_addr", "ps", "complaint_date", "details"}
+    elif tt == "Banking Ombudsman Complaint":
+        allowed_fields = {"complainant", "complainant_addr", "bank_name", "bank_branch", "account_no", "bank_complaint_date", "details"}
+    elif tt == "RERA Complaint":
+        allowed_fields = {"complainant", "builder", "project_name", "flat_no", "amount_paid", "details"}
+        
+    req.fields = sanitize_input_dict(req.fields, allowed_fields)
     
     if tt == "Rent Agreement":
         special_guidelines = (
@@ -1743,7 +1823,7 @@ General Instructions:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/generate-pdf")
+@app.post("/api/generate-pdf", dependencies=[Depends(check_rate_limit_ai)])
 def generate_pdf(req: PDFGenerateRequest):
     try:
         pdf = FPDF()
