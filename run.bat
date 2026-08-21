@@ -2,7 +2,7 @@
 echo Starting Needhi AI Full-Stack Legal Suite...
 echo.
 
-cd /d d:\needhi
+cd /d "%~dp0"
 
 echo Starting Python Backend Server...
 start "Needhi AI Backend" cmd /c "python backend/server.py"

@@ -445,6 +445,47 @@ MODEL_FALLBACK_ORDER = [
 
 ACTIVE_MODEL_NAME = "models/gemini-2.5-flash-lite"
 
+# Helper function to search the ingested legal knowledge base using FTS5
+def search_knowledge_base(query_text: str, limit: int = 5) -> list:
+    import re
+    cleaned_query = re.sub(r'[^\w\s]', ' ', query_text).strip()
+    if not cleaned_query:
+        return []
+    
+    words = [w for w in cleaned_query.split() if len(w) > 2]
+    if not words:
+        words = [w for w in cleaned_query.split() if len(w) > 0]
+        if not words:
+            return []
+    
+    search_expr = " OR ".join(words)
+    
+    conn = sqlite3.connect(DATABASE_FILE)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT c.act_name, c.page_number, c.content
+            FROM knowledge_base_search s
+            JOIN knowledge_base_chunks c ON s.chunk_id = c.id
+            WHERE s.content MATCH ?
+            ORDER BY rank
+            LIMIT ?
+        """, (search_expr, limit))
+        rows = cursor.fetchall()
+        results = []
+        for row in rows:
+            results.append({
+                "act_name": row[0],
+                "page_number": row[1],
+                "content": row[2]
+            })
+        return results
+    except Exception as e:
+        logger.error(f"Error searching knowledge base: {e}")
+        return []
+    finally:
+        conn.close()
+
 # Helper function to query Gemini with Key Rotation and Model Fallbacks
 def generate_gemini_content(prompt_or_parts, generation_config=None, stream=False, system_instruction=None):
     global API_KEYS
@@ -713,23 +754,46 @@ async def chat_endpoint(req: ChatRequest):
     language = req.language
     history = req.history[-10:] if req.history else []
     
+    # Prevent RAG pollution for simple greetings and short conversational messages
+    import re
+    query_clean = re.sub(r'[^\w\s]', '', query).strip().lower()
+    greetings = {
+        "hi", "hello", "hey", "hola", "greetings", "good morning", "good afternoon", 
+        "good evening", "how are you", "who are you", "what are you", "help", "menu",
+        "வணக்கம்", "நலம்", "எப்படி இருக்கிறீர்கள்", "நன்றி"
+    }
+    
+    kb_results = []
+    if query_clean not in greetings and len(query_clean) > 2:
+        kb_results = search_knowledge_base(query, limit=5)
+        
+    kb_context = ""
+    if kb_results:
+        kb_context = "\n".join(
+            f"[{i+1}] Source Act: {r['act_name']}, Page: {r['page_number']}\nContent Excerpt:\n{r['content']}\n"
+            for i, r in enumerate(kb_results)
+        )
+        kb_context = f"\n--- OFFICIAL LAW SOURCE CHUNKS ---\n{kb_context}\n--- END OF OFFICIAL SOURCE CHUNKS ---\n"
+    
     # Prompts
     if language == "Tamil":
         system_instruction = """System: நீங்கள் 'நீதி AI' — இந்திய சட்டத்தில் நிபுணத்துவம் வாய்ந்த AI சட்ட உதவியாளர்.
+அதிகாரப்பூர்வ சட்டங்களின் (BNS, BNSS, BSA, IPC, CrPC) பகுதிகள் 'OFFICIAL LAW SOURCE CHUNKS' என்ற தலைப்பில் வழங்கப்பட்டுள்ளன. உங்கள் பதில்களை இதிலிருந்து பெற முன்னுரிமை கொடுங்கள். நீங்கள் கூறும் ஒவ்வொரு சட்டப்பிரிவு அல்லது தகவலுக்கும் ஆதாரத்தைக் குறிப்பிடவும் (எ.கா. [BNS_2023, Page 12] அல்லது [IPC_1860, Page 5]). வழங்கப்பட்ட பிரிவுகளில் தகவல் இல்லை என்றால், உங்கள் பொதுவான சட்ட அறிவைப் பயன்படுத்தி பதிலளிக்கலாம், ஆனால் எது பொது அறிவு எது அதிகாரப்பூர்வ சட்டப் பகுதி என்பதைத் தெளிவாகக் குறிப்பிடவும்.
+
 TASK:
 1. இந்த கேள்வி இந்திய சட்டம், நீதிமன்றம், காவல்துறை, குற்றம், உரிமைகள் அல்லது சட்ட நடைமுறைகள் தொடர்பானதா?
 2. இல்லை என்றால் சரியாக பதிலளிக்கவும்: "மன்னிக்கவும். நான் சட்டம் தொடர்பான கேள்விகளுக்கு மட்டுமே பதிலளிப்பேன்."
 3. ஆம் என்றால்:
    கேள்வி முந்தைய உரையாடலின் தொடர்ச்சியா (Follow-up), ஒரு புதிய குற்றவியல் குற்றம் பற்றியதா, அல்லது சிவில்/நடைமுறை தலைப்பு பற்றியதா என்று ஆராயுங்கள்.
    
-   A. பயனர் கேள்வி ஒரு தொடர் கேள்வி அல்லது உரையாடலின் தொடர்ச்சியாக இருந்தால் (எ.கா. 'இதற்கு எவ்வளவு ஆண்டுகள் சிறை?', 'ஜாமீன் கிடைக்குமா?', 'யார் புகார் செய்ய வேண்டும்?'):
+   A. பயனர் கேள்வி ஒரு தொடர் கேள்வி அல்லது உரையாடலின் தொடர்ச்சியாக இருந்தால் (எ.கா. 'இதற்கு எவ்வளவு ஆண்டுகள் சிறை?', 'ஜாமீன் கிடைனகுமா?', 'யார் புகார் செய்ய வேண்டும்?'):
       மேலே உள்ள விரிவான தலைப்புகள் மற்றும் பிரிவுகளை (B அல்லது C) மீண்டும் பயன்படுத்த வேண்டாம்.
       பதிலாக, முந்தைய உரையாடலின் பின்னணியை வைத்துக்கொண்டு, பயனர் கேட்ட குறிப்பிட்ட கேள்விக்கு நேரடியாகவும், உரையாடல் வடிவிலும் 2-4 வாக்கியங்களில் எளிய பதில் தரவும். ஒரு வழக்கறிஞர் உங்களிடம் நேரடியாகப் பேசுவது போன்ற மனித உணர்வுடன் பதில் இருக்க வேண்டும்.
    
    B. கேள்வி ஒரு புதிய குற்றவியல் குற்றம் பற்றியதாக இருந்தால் (எ.கா. திருட்டு, கொலை, ஏமாற்றுதல், தாக்குதல்):
       பின்வரும் தலைப்புகளில் விரிவான பதில் தரவும் (தலைப்புகள் மற்றும் ஈமோஜிகளை அப்படியே பயன்படுத்தவும்):
       **⚖️ சட்ட பிரிவுகள் (Applicable Legal Sections)**
-      - பொருந்தும் BNS/IPC/BNSS பிரிவுகள்
+      - பொருந்தும் BNS/IPC/BNSS பிரிவுகள் மற்றும் அவற்றுக்கான ஆதாரங்கள் (எ.கா. [BNS_2023, Page 12])
       **🔍 குற்றத்தின் விளக்கம் (Offense Explained)**
       - குற்றத்தைப் பற்றி எளிய தமிழில் விளக்கவும்
       **⚠️ தண்டனை விவரங்கள் (Punishment Details)**
@@ -752,6 +816,8 @@ TASK:
       - எவ்வாறு புகார் செய்ய வேண்டும், காலவரம்பு, தேவையான ஆவணங்கள் போன்ற படிநிலைகள்"""
     else:
         system_instruction = """You are 'Needhi AI' — an expert AI Legal Assistant specializing in Indian Law.
+You are provided with actual excerpts from the official laws (BNS, BNSS, BSA, IPC, CrPC) under 'OFFICIAL LAW SOURCE CHUNKS' when available. You must prioritize this context to answer the question. For every legal fact or section number you state, you MUST cite the source in brackets, e.g. [BNS_2023, Page 12] or [IPC_1860, Page 5]. If the context does not contain the answer, you may answer using your general knowledge of Indian Law, but clearly state which parts are from general legal knowledge versus the official source text. Keep citations strictly grounded in the provided sources.
+
 TASK:
 1. Is this related to Indian Law, Court, Police, Crime, Rights, or Legal Procedures?
 2. IF NO: REPLY EXACTLY: "Sorry, I am designed to answer only legal questions."
@@ -765,7 +831,7 @@ TASK:
    B. IF THE QUERY IS A NEW CRIMINAL OFFENSE (e.g., theft, assault, murder, fraud, cheating):
       Provide a detailed structured response with EXACTLY the following headings (use emojis and bolding as shown):
       **⚖️ Applicable Legal Sections**
-      - List relevant BNS/IPC/CrPC/BNSS sections
+      - List relevant BNS/IPC/CrPC/BNSS sections with their sources (e.g. [BNS_2023, Page 12])
       **🔍 Offense Explained**
       - Clear explanation of the criminal offense
       **⚠️ Punishment Details**
@@ -794,9 +860,14 @@ TASK:
                 "role": "user" if h.role == "user" else "model",
                 "parts": [h.text]
             })
+            
+    user_parts = [query]
+    if kb_context:
+        user_parts.append(kb_context)
+        
     messages.append({
         "role": "user",
-        "parts": [query]
+        "parts": user_parts
     })
 
     try:
@@ -867,7 +938,8 @@ async def analyze_document(
         system_instruction = (
             "You are Needhi AI, an Indian legal assistant. "
             "Your task is to analyze legal documents and provide a clear, structured overview. "
-            "Identify the document type, key clauses under Indian law, rights/obligations, red flags, and recommended actions."
+            "Identify the document type, key clauses under Indian law, rights/obligations, red flags, and recommended actions. "
+            "Base your analysis strictly on the provided document text. Do not assume or hallucinate clauses not present in the document."
         )
         
         # Analyze PDF text
@@ -882,7 +954,7 @@ async def analyze_document(
             if len(doc_text.strip()) > 100:
                 prompt = (
                     f"Analyze this legal document text. Make sure to address the following focus if provided: {extra_q}\n\n"
-                    f"Document text:\n{doc_text[:12000]}"
+                    f"Document text:\n{doc_text[:150000]}"
                 )
                 response, _ = generate_gemini_content(
                     prompt, 
@@ -1910,29 +1982,29 @@ async def chat_doc_endpoint(req: ChatDocRequest):
             history_block = f"\nPrevious conversation history:\n{history_block}\n"
 
     if language == "Tamil":
-        system_instruction = "நீங்கள் 'நீதி AI' — இந்திய சட்டத்தில் நிபுணத்துவம் வாய்ந்த AI சட்ட உதவியாளர். பயனர் வழங்கிய சட்ட ஆவணத்தின் பின்னணியில் இருந்து பயனரின் கேள்விக்கு நேரடியாகவும், தெளிவாகவும் எளிய தமிழில் பதிலளிக்கவும்."
+        system_instruction = "நீங்கள் 'நீதி AI' — பயனர் வழங்கிய சட்ட ஆவணங்களில் இருந்து மட்டுமே பதிலளிக்க வேண்டிய ஒரு கண்டிப்பான AI சட்ட உதவியாளர். வழங்கப்பட்ட ஆவணத்தில் உள்ள தகவல்களை மட்டுமே ஆதாரமாகக் கொண்டு பயனரின் கேள்விக்கு எளிய தமிழில் பதிலளிக்கவும்."
         prompt = f"""ஆவணத்தின் உரை (Document Text):
 --- ஆவணத்தின் உரை (Document Text) ---
-{doc_text[:12000]}
+{doc_text[:150000]}
 --- முடிவு ---
 
 {history_block}
 பயனர் கேள்வி: '{query}'
 
 பணி (TASK):
-ஆவணத்தின் பின்னணியில் இருந்து பயனரின் கேள்விக்கு எளிய தமிழில் பதிலளிக்கவும். தேவைப்பட்டால் ஆவணத்தின் குறிப்பிட்ட பிரிவுகள் அல்லது ஷரத்துக்களை சுட்டிக்காட்டவும். ஆவணத்தில் இல்லாத தகவலைப் பற்றி கேள்வி இருந்தால், 'கொடுக்கப்பட்ட ஆவணத்தில் இதைப் பற்றிய தகவல்கள் இல்லை' என்று கூறிவிட்டு பொதுவான சட்ட பின்னணியை விளக்கவும்."""
+வழங்கப்பட்ட ஆவணத்தின் உரையிலிருந்து மட்டுமே பயனரின் கேள்விக்கு எளிய தமிழில் பதிலளிக்கவும். உங்கள் பதிலில் ஆவணத்தின் குறிப்பிட்ட பிரிவுகள் அல்லது ஷரத்துக்களை கண்டிப்பாக ஆதாரமாகக் சுட்டிக்காட்டவும். ஆவணத்தில் இல்லாத தகவலைப் பற்றி கேள்வி இருந்தால், 'கொடுக்கப்பட்ட ஆவணத்தில் இதைப் பற்றிய தகவல்கள் இல்லை' என்று தெளிவாகக் கூறவும். பொதுவான சட்ட விளக்கங்களையோ அல்லது ஊகங்களையோ அளிக்க வேண்டாம்."""
     else:
-        system_instruction = "You are 'Needhi AI' — an expert AI Legal Assistant specializing in Indian Law. Answer the user's question directly, clearly, and concisely in English, using the context of the uploaded document."
+        system_instruction = "You are 'Needhi AI' — a strict AI Legal Assistant. You must answer the user's question using ONLY the provided document text. Do not make assumptions or use general knowledge."
         prompt = f"""Here is the text of the document:
 --- DOCUMENT START ---
-{doc_text[:12000]}
+{doc_text[:150000]}
 --- DOCUMENT END ---
 
 {history_block}
 User Query: '{query}'
 
 TASK:
-Answer the user's question using the context of the uploaded document. Reference specific clauses or sections of the document where relevant. If the question is not answerable from the document, state that clearly, but provide general legal information if applicable."""
+Answer the user's question using ONLY the context of the uploaded document. You MUST reference specific clauses, page numbers, or sections of the document to support your answer. If the question is not answerable from the document, state clearly: 'I cannot find this information in the uploaded document.' Do not provide general legal info or assumptions."""
 
     try:
         response, used_model = generate_gemini_content(
