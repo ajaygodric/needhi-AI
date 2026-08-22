@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
+from contextlib import asynccontextmanager
 # Core imports
 from core.config import ROOT_DIR, ACTIVE_MODEL_NAME
 from core.db import init_db, purge_old_records_db
@@ -17,8 +18,18 @@ from routers import chat, cases, bookings, fir, bns, docs, tools
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("needhi")
 
-# Initialize FastAPI App
-app = FastAPI(title="Needhi AI Backend", version="1.0.0")
+# Startup Lifespan events
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Guarantee DB exists and is migrated
+    init_db()
+    # Purge expired PII/bookings/subscriptions older than 90 days
+    purge_old_records_db(days=90)
+    logger.info("Needhi AI Backend startup sequence complete.")
+    yield
+
+# Initialize FastAPI App with lifespan
+app = FastAPI(title="Needhi AI Backend", version="1.0.0", lifespan=lifespan)
 
 # CORS Middleware
 ALLOWED_ORIGINS = os.environ.get(
@@ -33,14 +44,6 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
-# Startup Lifespan events
-@app.on_event("startup")
-def startup_event():
-    # Guarantee DB exists and is migrated
-    init_db()
-    # Purge expired PII/bookings/subscriptions older than 90 days
-    purge_old_records_db(days=90)
-    logger.info("Needhi AI Backend startup sequence complete.")
 
 # Register sub-routers
 app.include_router(chat.router)
