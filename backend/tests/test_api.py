@@ -160,7 +160,14 @@ def test_spa_catch_all():
     assert response.status_code == 200
     assert "html" in response.text.lower() or "root" in response.text.lower()
 
+def test_static_asset_logo():
+    """Verify that requesting a static asset file returns the actual file contents (not index.html)."""
+    response = client.get("/needhi.png")
+    assert response.status_code == 200
+    assert "html" not in response.text.lower()
+
 # Stop the mock after tests finish
 def teardown_module(module):
     mock_gen.stop()
+
 

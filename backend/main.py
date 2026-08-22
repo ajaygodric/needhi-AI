@@ -66,8 +66,14 @@ def spa_catch_all(catchall: str):
     if catchall.startswith("api/"):
         raise HTTPException(status_code=404, detail="API endpoint not found")
         
+    # Check if the requested file exists in dist/ (e.g. needhi.png, favicon.svg)
+    file_path = os.path.join(dist_path, catchall)
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+        
     index_file = os.path.join(dist_path, "index.html")
     if os.path.exists(index_file):
         return FileResponse(index_file)
         
     raise HTTPException(status_code=404, detail="Frontend build assets not found.")
+
