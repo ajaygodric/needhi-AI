@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32">
+  <!-- Central pillar -->
+  <rect x="11.25" y="4" width="1.5" height="15" fill="#c9a84c" rx="0.5"/>
+  <!-- Central pillar cap -->
+  <circle cx="12" cy="3.5" r="1.5" fill="#c9a84c"/>
+  <!-- Base -->
+  <path d="M7 19.5h10v1.5H7z" fill="#c9a84c"/>
+  <path d="M9 18.5h6v1H9z" fill="#c9a84c"/>
+  
+  <!-- Horizontal balance beam -->
+  <path d="M4 6.5h16v1H4z" fill="#c9a84c"/>
+  
+  <!-- Left scale pan and chains -->
+  <!-- Left pan hook -->
+  <path d="M6 7.5L3.5 12.5h5L6 7.5z" fill="none" stroke="#c9a84c" stroke-width="0.75" stroke-linejoin="round"/>
+  <!-- Left pan plate -->
+  <path d="M3 13h6v0.5a3 3 0 0 1-6 0V13z" fill="#c9a84c"/>
+  
+  <!-- Right scale pan and chains -->
+  <!-- Right pan hook -->
+  <path d="M18 7.5l-2.5 5h5l-2.5-5z" fill="none" stroke="#c9a84c" stroke-width="0.75" stroke-linejoin="round"/>
+  <!-- Right pan plate -->
+  <path d="M15 13h6v0.5a3 3 0 0 1-6 0V13z" fill="#c9a84c"/>
+</svg>
