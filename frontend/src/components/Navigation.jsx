@@ -1,3 +1,4 @@
+import { NavLink } from "react-router-dom";
 import {
   FaHome,
   FaBalanceScale,
@@ -13,20 +14,20 @@ import {
   FaClock
 } from "react-icons/fa";
 
-const Navigation = ({ activeTab, setActiveTab, language, setLanguage, isOpen, setIsOpen }) => {
+const Navigation = ({ language, setLanguage, isOpen, setIsOpen }) => {
   const menuItems = [
-    { id: "home", label: { English: "Home", Tamil: "முகப்பு" }, icon: <FaHome /> },
-    { id: "bns", label: { English: "BNS vs IPC Map", Tamil: "BNS vs IPC வரைபடம்" }, icon: <FaBalanceScale /> },
-    { id: "predictor", label: { English: "Outcome Predictor", Tamil: "முடிவு கணிப்பாளர்" }, icon: <FaGavel /> },
-    { id: "fir", label: { English: "FIR Draft Wizard", Tamil: "FIR வரைவு வழிகாட்டி" }, icon: <FaPenNib /> },
-    { id: "templates", label: { English: "Document Studio", Tamil: "ஆவண ஸ்டுடியோ" }, icon: <FaFileAlt /> },
-    { id: "checklist", label: { English: "Filing Checklist", Tamil: "தாக்கல் சரிபார்ப்பு" }, icon: <FaClipboardList /> },
-    { id: "simplifier", label: { English: "Legal Simplifier", Tamil: "சட்ட எளிமையாக்கி" }, icon: <FaBookOpen /> },
-    { id: "limitations", label: { English: "Limitation Checker", Tamil: "காலவரம்பு சரிபார்ப்பான்" }, icon: <FaClock /> },
-    { id: "rights", label: { English: "Know Your Rights", Tamil: "உங்கள் உரிமைகள்" }, icon: <FaShieldAlt /> },
-    { id: "lawyers", label: { English: "Book a Lawyer", Tamil: "வழக்கறிஞர் முன்பதிவு" }, icon: <FaCalendarAlt /> },
-    { id: "case", label: { English: "Case Tracker", Tamil: "வழக்கு கண்காணிப்பாளர்" }, icon: <FaSearch /> },
-    { id: "about", label: { English: "About & Helpline", Tamil: "விவரம் & உதவி எண்கள்" }, icon: <FaInfoCircle /> },
+    { id: "home", path: "/", label: { English: "Home", Tamil: "முகப்பு" }, icon: <FaHome /> },
+    { id: "bns", path: "/bns", label: { English: "BNS vs IPC Map", Tamil: "BNS vs IPC வரைபடம்" }, icon: <FaBalanceScale /> },
+    { id: "predictor", path: "/predictor", label: { English: "Outcome Predictor", Tamil: "முடிவு கணிப்பாளர்" }, icon: <FaGavel /> },
+    { id: "fir", path: "/fir", label: { English: "FIR Draft Wizard", Tamil: "FIR வரைவு வழிகாட்டி" }, icon: <FaPenNib /> },
+    { id: "templates", path: "/templates", label: { English: "Document Studio", Tamil: "ஆவண ஸ்டுடியோ" }, icon: <FaFileAlt /> },
+    { id: "checklist", path: "/checklist", label: { English: "Filing Checklist", Tamil: "தாக்கல் சரிபார்ப்பு" }, icon: <FaClipboardList /> },
+    { id: "simplifier", path: "/simplifier", label: { English: "Legal Simplifier", Tamil: "சட்ட எளிமையாக்கி" }, icon: <FaBookOpen /> },
+    { id: "limitations", path: "/limitations", label: { English: "Limitation Checker", Tamil: "காலவரம்பு சரிபார்ப்பான்" }, icon: <FaClock /> },
+    { id: "rights", path: "/rights", label: { English: "Know Your Rights", Tamil: "உங்கள் உரிமைகள்" }, icon: <FaShieldAlt /> },
+    { id: "lawyers", path: "/lawyers", label: { English: "Book a Lawyer", Tamil: "வழக்கறிஞர் முன்பதிவு" }, icon: <FaCalendarAlt /> },
+    { id: "case", path: "/case", label: { English: "Case Tracker", Tamil: "வழக்கு கண்காணிப்பாளர்" }, icon: <FaSearch /> },
+    { id: "about", path: "/about", label: { English: "About & Helpline", Tamil: "விவரம் & உதவி எண்கள்" }, icon: <FaInfoCircle /> },
   ];
 
   return (
@@ -41,17 +42,18 @@ const Navigation = ({ activeTab, setActiveTab, language, setLanguage, isOpen, se
 
       <nav className="sidebar-menu">
         {menuItems.map((item) => (
-          <div
+          <NavLink
             key={item.id}
-            className={`menu-item ${activeTab === item.id ? "active" : ""}`}
+            to={item.path}
+            className={({ isActive }) => `menu-item ${isActive ? "active" : ""}`}
             onClick={() => {
-              setActiveTab(item.id);
               setIsOpen(false); // Close sidebar on mobile select
             }}
+            end={item.path === "/"}
           >
             <span className="menu-icon">{item.icon}</span>
             <span className="menu-text">{item.label[language]}</span>
-          </div>
+          </NavLink>
         ))}
       </nav>
 
@@ -79,3 +81,4 @@ const Navigation = ({ activeTab, setActiveTab, language, setLanguage, isOpen, se
 };
 
 export default Navigation;
+

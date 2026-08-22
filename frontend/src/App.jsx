@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Navigation from "./components/Navigation";
 import HomeChat from "./components/HomeChat";
 import BnsLookup from "./components/BnsLookup";
@@ -16,41 +17,8 @@ import { FaBars, FaTimes, FaExclamationTriangle, FaShieldAlt, FaUserShield, FaLa
 import "./App.css";
 
 function App() {
-  const [activeTab, setActiveTab] = useState("home");
   const [language, setLanguage] = useState("English"); // "English" or "Tamil"
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  // Render view dynamically
-  const renderActiveView = () => {
-    switch (activeTab) {
-      case "home":
-        return <HomeChat language={language} />;
-      case "rights":
-        return <RightsExplorer language={language} />;
-      case "bns":
-        return <BnsLookup language={language} />;
-      case "fir":
-        return <FirWizard language={language} />;
-      case "templates":
-        return <DocStudio language={language} />;
-      case "predictor":
-        return <CasePredictor language={language} />;
-      case "simplifier":
-        return <LegalSimplifier language={language} />;
-      case "limitations":
-        return <LimitationsChecker language={language} />;
-      case "checklist":
-        return <FilingChecklist language={language} />;
-      case "lawyers":
-        return <LawyerBooking language={language} />;
-      case "case":
-        return <CaseTracker language={language} />;
-      case "about":
-        return <AboutContact language={language} />;
-      default:
-        return <HomeChat language={language} />;
-    }
-  };
 
   // Sticky helplines for banner
   const bannerHelplines = [
@@ -67,8 +35,6 @@ function App() {
 
       {/* Sidebar Navigation */}
       <Navigation
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
         language={language}
         setLanguage={setLanguage}
         isOpen={isSidebarOpen}
@@ -120,7 +86,21 @@ function App() {
 
         {/* View Component */}
         <main style={{ flex: 1, position: "relative", zIndex: 1 }}>
-          {renderActiveView()}
+          <Routes>
+            <Route path="/" element={<HomeChat language={language} />} />
+            <Route path="/bns" element={<BnsLookup language={language} />} />
+            <Route path="/predictor" element={<CasePredictor language={language} />} />
+            <Route path="/fir" element={<FirWizard language={language} />} />
+            <Route path="/templates" element={<DocStudio language={language} />} />
+            <Route path="/checklist" element={<FilingChecklist language={language} />} />
+            <Route path="/simplifier" element={<LegalSimplifier language={language} />} />
+            <Route path="/limitations" element={<LimitationsChecker language={language} />} />
+            <Route path="/rights" element={<RightsExplorer language={language} />} />
+            <Route path="/lawyers" element={<LawyerBooking language={language} />} />
+            <Route path="/case" element={<CaseTracker language={language} />} />
+            <Route path="/about" element={<AboutContact language={language} />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </main>
       </div>
     </div>
@@ -128,3 +108,4 @@ function App() {
 }
 
 export default App;
+
