@@ -2,22 +2,26 @@ const API_BASE = "";
 
 export const getApiUrl = (path) => `${API_BASE}${path}`;
 
+// Automatically retrieve the local session token and inject the Bearer header
+export const getHeaders = (extra = {}) => {
+  const headers = { ...extra };
+  const token = localStorage.getItem("needhi_token");
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+};
+
 /**
  * Sends a query to the legal chatbot and handles the streaming response.
- * @param {string} query - The user query
- * @param {string} language - "English" or "Tamil"
- * @param {Array} history - Array of { role, text } message history
- * @param {function} onChunk - Callback triggered when a text chunk is received
- * @param {function} onDone - Callback triggered when the stream finishes
- * @param {function} onError - Callback triggered on failure
  */
 export const chatWithNeedhi = async (query, language, history, onChunk, onDone, onError) => {
   try {
     const response = await fetch(getApiUrl("/api/chat"), {
       method: "POST",
-      headers: {
+      headers: getHeaders({
         "Content-Type": "application/json",
-      },
+      }),
       body: JSON.stringify({ query, language, history }),
     });
 
@@ -58,6 +62,7 @@ export const analyzeDocument = async (file, question) => {
 
   const response = await fetch(getApiUrl("/api/analyze-doc"), {
     method: "POST",
+    headers: getHeaders(),
     body: formData,
   });
 
@@ -75,9 +80,9 @@ export const analyzeDocument = async (file, question) => {
 export const bnsLookup = async (term = "", category = "") => {
   const response = await fetch(getApiUrl("/api/bns-lookup"), {
     method: "POST",
-    headers: {
+    headers: getHeaders({
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify({ term, category }),
   });
 
@@ -94,9 +99,9 @@ export const bnsLookup = async (term = "", category = "") => {
 export const compareBnsAi = async (query) => {
   const response = await fetch(getApiUrl("/api/bns-compare-ai"), {
     method: "POST",
-    headers: {
+    headers: getHeaders({
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify({ query }),
   });
 
@@ -113,9 +118,9 @@ export const compareBnsAi = async (query) => {
 export const subscribeToCase = async (cnr, email, clientName, language = "English") => {
   const response = await fetch(getApiUrl("/api/cases/subscribe"), {
     method: "POST",
-    headers: {
+    headers: getHeaders({
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify({ cnr, email, client_name: clientName, language }),
   });
 
@@ -132,7 +137,9 @@ export const subscribeToCase = async (cnr, email, clientName, language = "Englis
  */
 export const searchCases = async (search = "", searchType = "CNR Number") => {
   const url = getApiUrl(`/api/cases?search=${encodeURIComponent(search)}&search_type=${encodeURIComponent(searchType)}`);
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: getHeaders()
+  });
   if (!response.ok) {
     throw new Error("Failed to fetch cases");
   }
@@ -144,7 +151,9 @@ export const searchCases = async (search = "", searchType = "CNR Number") => {
  */
 export const searchLawyers = async (specialization = "", city = "", search = "") => {
   const url = getApiUrl(`/api/lawyers?specialization=${encodeURIComponent(specialization)}&city=${encodeURIComponent(city)}&search=${encodeURIComponent(search)}`);
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: getHeaders()
+  });
   if (!response.ok) {
     throw new Error("Failed to fetch lawyers");
   }
@@ -157,9 +166,9 @@ export const searchLawyers = async (specialization = "", city = "", search = "")
 export const generateFir = async (issue, state, ps, name, category = null, categoryFields = null) => {
   const response = await fetch(getApiUrl("/api/generate-fir"), {
     method: "POST",
-    headers: {
+    headers: getHeaders({
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify({ issue, state, ps, name, category, category_fields: categoryFields }),
   });
 
@@ -176,9 +185,9 @@ export const generateFir = async (issue, state, ps, name, category = null, categ
 export const generateTemplate = async (templateType, fields) => {
   const response = await fetch(getApiUrl("/api/generate-template"), {
     method: "POST",
-    headers: {
+    headers: getHeaders({
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify({ template_type: templateType, fields }),
   });
 
@@ -196,9 +205,9 @@ export const downloadPdf = async (title, text, defaultFilename = "Document.pdf")
   try {
     const response = await fetch(getApiUrl("/api/generate-pdf"), {
       method: "POST",
-      headers: {
+      headers: getHeaders({
         "Content-Type": "application/json",
-      },
+      }),
       body: JSON.stringify({ title, text }),
     });
 
@@ -206,20 +215,31 @@ export const downloadPdf = async (title, text, defaultFilename = "Document.pdf")
       throw new Error("Failed to generate PDF");
     }
 
-    const blob = await response.blob();
+    const blob = new Blob([await response.arrayBuffer()], { type: "application/pdf" });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = url;
     link.download = defaultFilename;
+    link.href = url;
+    link.style.display = "none";
     document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+    
+    const clickEvent = new MouseEvent("click", {
+      view: window,
+      bubbles: true,
+      cancelable: true
+    });
+    link.dispatchEvent(clickEvent);
+
+    setTimeout(() => {
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    }, 1500);
   } catch (error) {
     console.error("PDF generation failed:", error);
     alert("Error downloading PDF: " + error.message);
   }
 };
+
 
 /**
  * Books an appointment with a lawyer.
@@ -227,9 +247,9 @@ export const downloadPdf = async (title, text, defaultFilename = "Document.pdf")
 export const bookLawyer = async (bookingData) => {
   const response = await fetch(getApiUrl("/api/book-lawyer"), {
     method: "POST",
-    headers: {
+    headers: getHeaders({
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify(bookingData),
   });
 
@@ -248,9 +268,9 @@ export const chatWithDocument = async (docText, query, language, history, onChun
   try {
     const response = await fetch(getApiUrl("/api/chat-doc"), {
       method: "POST",
-      headers: {
+      headers: getHeaders({
         "Content-Type": "application/json",
-      },
+      }),
       body: JSON.stringify({ doc_text: docText, query, language, history }),
     });
 
@@ -285,9 +305,9 @@ export const chatWithDocument = async (docText, query, language, history, onChun
 export const predictCaseOutcome = async (offense, narrative, evidence, priorRecord, jurisdiction, language) => {
   const response = await fetch(getApiUrl("/api/predict-outcome"), {
     method: "POST",
-    headers: {
+    headers: getHeaders({
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify({
       offense,
       narrative,
@@ -311,9 +331,9 @@ export const predictCaseOutcome = async (offense, narrative, evidence, priorReco
 export const simplifyLegalText = async (text, targetLanguage) => {
   const response = await fetch(getApiUrl("/api/simplify-text"), {
     method: "POST",
-    headers: {
+    headers: getHeaders({
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify({ text, target_language: targetLanguage }),
   });
 

@@ -1,2 +1,2 @@
 # Export Routers
-from . import chat, cases, bookings, fir, bns, docs, tools
+from . import auth, chat, cases, bookings, fir, bns, docs, tools

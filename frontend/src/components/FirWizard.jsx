@@ -7,6 +7,9 @@ const FirWizard = ({ language }) => {
   
   // Step 1: Complainant
   const [complainantName, setComplainantName] = useState("");
+  const [complainantAge, setComplainantAge] = useState("");
+  const [complainantParentName, setComplainantParentName] = useState("");
+  const [complainantNationality, setComplainantNationality] = useState("Indian");
   const [complainantPhone, setComplainantPhone] = useState("");
   const [complainantAddress, setComplainantAddress] = useState("");
   const [complainantState, setComplainantState] = useState("Tamil Nadu");
@@ -15,6 +18,7 @@ const FirWizard = ({ language }) => {
   const [incidentDate, setIncidentDate] = useState("");
   const [incidentTime, setIncidentTime] = useState("");
   const [incidentLocation, setIncidentLocation] = useState("");
+  const [incidentDistrict, setIncidentDistrict] = useState("");
   const [policeStation, setPoliceStation] = useState("");
 
   // Step 3: Incident Details
@@ -77,9 +81,14 @@ ${categoryNarrative}Incident details: ${incidentDetails}
 Accused details: ${accusedDetails || "Unknown accused"}
 Witness details: ${witnessDetails || "No witnesses listed"}
 Incident date & time: ${incidentDate} around ${incidentTime}
-Incident location: ${incidentLocation}
+Incident location: ${incidentLocation}${incidentDistrict ? `, District: ${incidentDistrict}` : ""}
 Complainant address: ${complainantAddress}
 Complainant contact phone: ${complainantPhone}
+Complainant age: ${complainantAge || "not specified"}
+Complainant parent/husband name: ${complainantParentName || "not specified"}
+Complainant nationality: ${complainantNationality || "Indian"}
+Declaration place: ${incidentLocation || complainantAddress || "________________________"}
+Declaration date: ${incidentDate || "________________________"}
     `.trim();
 
     try {
@@ -150,9 +159,33 @@ Complainant contact phone: ${complainantPhone}
                 <input
                   type="text"
                   className="input-control"
-                  placeholder="e.g. abcd"
+                  placeholder="e.g. Ajay Kumar"
                   value={complainantName}
                   onChange={(e) => setComplainantName(e.target.value)}
+                />
+              </div>
+              <div className="input-group">
+                <label className="input-label">{language === "Tamil" ? "வயது" : "Age (years)"}</label>
+                <input
+                  type="number"
+                  className="input-control"
+                  placeholder="e.g. 32"
+                  min="1"
+                  max="120"
+                  value={complainantAge}
+                  onChange={(e) => setComplainantAge(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="grid-2">
+              <div className="input-group">
+                <label className="input-label">{language === "Tamil" ? "தந்தை / கணவர் பெயர்" : "Father's / Husband's Name"}</label>
+                <input
+                  type="text"
+                  className="input-control"
+                  placeholder="e.g. Ramesh Kumar (Father)"
+                  value={complainantParentName}
+                  onChange={(e) => setComplainantParentName(e.target.value)}
                 />
               </div>
               <div className="input-group">
@@ -160,7 +193,7 @@ Complainant contact phone: ${complainantPhone}
                 <input
                   type="text"
                   className="input-control"
-                  placeholder="e.g. 1234"
+                  placeholder="e.g. 9876543210"
                   value={complainantPhone}
                   onChange={(e) => setComplainantPhone(e.target.value)}
                 />
@@ -168,7 +201,7 @@ Complainant contact phone: ${complainantPhone}
             </div>
             <div className="grid-2">
               <div className="input-group">
-                <label className="input-label">{language === "Tamil" ? "முகவரி" : "Address"}</label>
+                <label className="input-label">{language === "Tamil" ? "முகவரி" : "Residential Address"}</label>
                 <input
                   type="text"
                   className="input-control"
@@ -185,6 +218,18 @@ Complainant contact phone: ${complainantPhone}
                   placeholder="e.g. Tamil Nadu"
                   value={complainantState}
                   onChange={(e) => setComplainantState(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="grid-2">
+              <div className="input-group">
+                <label className="input-label">{language === "Tamil" ? "தேசியம்" : "Nationality"}</label>
+                <input
+                  type="text"
+                  className="input-control"
+                  placeholder="e.g. Indian"
+                  value={complainantNationality}
+                  onChange={(e) => setComplainantNationality(e.target.value)}
                 />
               </div>
             </div>
@@ -229,6 +274,18 @@ Complainant contact phone: ${complainantPhone}
                   onChange={(e) => setIncidentLocation(e.target.value)}
                 />
               </div>
+              <div className="input-group">
+                <label className="input-label">{language === "Tamil" ? "மாவட்டம்" : "District"}</label>
+                <input
+                  type="text"
+                  className="input-control"
+                  placeholder="e.g. Chennai"
+                  value={incidentDistrict}
+                  onChange={(e) => setIncidentDistrict(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="grid-2">
               <div className="input-group">
                 <label className="input-label">{language === "Tamil" ? "காவல் நிலையம்" : "Jurisdictional Police Station"}</label>
                 <input
@@ -531,11 +588,21 @@ Complainant contact phone: ${complainantPhone}
             <div style={{ marginBottom: "25px", border: "1px solid var(--border-gold)", borderRadius: "10px", padding: "16px", background: "rgba(255,255,255,0.01)" }}>
               <div className="review-row">
                 <span className="label">Complainant:</span>
-                <span className="val">{complainantName || "________________________"}</span>
+                <span className="val">{complainantName || "________________________"}{complainantAge ? `, Age: ${complainantAge}` : ""}</span>
               </div>
+              {complainantParentName && (
+                <div className="review-row">
+                  <span className="label">Father/Husband:</span>
+                  <span className="val">{complainantParentName}</span>
+                </div>
+              )}
               <div className="review-row">
                 <span className="label">Contact Info:</span>
                 <span className="val">{complainantPhone || "________________________"}</span>
+              </div>
+              <div className="review-row">
+                <span className="label">Nationality:</span>
+                <span className="val">{complainantNationality || "Indian"}</span>
               </div>
               <div className="review-row">
                 <span className="label">Incident Date:</span>
@@ -543,7 +610,7 @@ Complainant contact phone: ${complainantPhone}
               </div>
               <div className="review-row">
                 <span className="label">Jurisdiction PS:</span>
-                <span className="val">{policeStation || "________________________"} ({complainantState})</span>
+                <span className="val">{policeStation || "________________________"}{incidentDistrict ? `, District: ${incidentDistrict}` : ""} ({complainantState})</span>
               </div>
               <div className="review-row" style={{ borderBottom: "none" }}>
                 <span className="label">Description Summary:</span>

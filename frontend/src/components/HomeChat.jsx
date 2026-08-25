@@ -3,7 +3,7 @@ import { chatWithNeedhi, analyzeDocument, downloadPdf, chatWithDocument } from "
 import { renderMarkdown } from "../utils/renderMarkdown";
 import { FaPaperPlane, FaTrash, FaDownload, FaMicrophone, FaFileMedical, FaExclamationTriangle, FaComments, FaFileAlt, FaBalanceScale, FaUser } from "react-icons/fa";
 
-const HomeChat = ({ language }) => {
+const HomeChat = ({ language, user }) => {
   const [activeTab, setActiveTab] = useState("ask"); // "ask", "upload", "voice"
   
   // Chat state
@@ -11,7 +11,49 @@ const HomeChat = ({ language }) => {
   const [inputMessage, setInputMessage] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamedResponse, setStreamedResponse] = useState("");
+  const [searchHistory, setSearchHistory] = useState([]);
   const chatEndRef = useRef(null);
+
+  const fetchSearchHistory = () => {
+    if (!user) return;
+    fetch("/api/chat/history", {
+      headers: {
+        "Authorization": `Bearer ${user.token}`
+      }
+    })
+    .then(res => {
+      if (res.ok) return res.json();
+      return [];
+    })
+    .then(data => {
+      setSearchHistory(data || []);
+    })
+    .catch(err => console.error(err));
+  };
+
+  const handleClearHistory = () => {
+    if (!user) return;
+    if (!confirm(language === "Tamil" ? "சமீபத்திய தேடல்களை அழிக்க வேண்டுமா?" : "Are you sure you want to clear your search history?")) {
+      return;
+    }
+    fetch("/api/chat/history", {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${user.token}`
+      }
+    })
+    .then(res => {
+      if (res.ok) {
+        setSearchHistory([]);
+      }
+    })
+    .catch(err => console.error(err));
+  };
+
+  useEffect(() => {
+    fetchSearchHistory();
+  }, [user]);
+
 
   // Document scan state
   const [selectedFile, setSelectedFile] = useState(null);
@@ -76,6 +118,7 @@ const HomeChat = ({ language }) => {
         setChatHistory([...updatedHistory, { role: "ai", text: fullText }].slice(-30));
         setStreamedResponse("");
         setIsStreaming(false);
+        fetchSearchHistory();
       },
       (err) => {
         setChatHistory([...updatedHistory, { role: "ai", text: `❌ Error: ${err.message}. Please try again.` }].slice(-30));
@@ -282,6 +325,34 @@ const HomeChat = ({ language }) => {
                     </button>
                   ))}
                 </div>
+
+                {searchHistory.length > 0 && (
+                  <div style={{ marginTop: "25px", width: "100%", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "20px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                      <h4 style={{ fontSize: "0.85rem", color: "var(--accent-gold-light)", textTransform: "uppercase", letterSpacing: "1px", margin: 0 }}>
+                        {language === "Tamil" ? "சமீபத்திய தேடல்கள்" : "Recent Searches"}
+                      </h4>
+                      <button 
+                        onClick={handleClearHistory}
+                        style={{ background: "transparent", border: "none", color: "var(--danger)", fontSize: "0.75rem", fontWeight: "600", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                      >
+                        <FaTrash style={{ fontSize: "0.68rem" }} /> {language === "Tamil" ? "அழி" : "Clear"}
+                      </button>
+                    </div>
+                    <div className="chat-suggestions" style={{ justifyContent: "center" }}>
+                      {searchHistory.map((sh, idx) => (
+                        <button 
+                          key={idx} 
+                          className="suggestion-chip" 
+                          onClick={() => handleSendMessage(sh.query)} 
+                          style={{ borderColor: "rgba(201,168,76,0.2)", background: "rgba(201,168,76,0.03)", color: "var(--text-secondary)", opacity: 0.9 }}
+                        >
+                          🔍 {sh.query.length > 40 ? sh.query.slice(0, 40) + "..." : sh.query}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="chat-messages">

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Navigation from "./components/Navigation";
+import Auth from "./components/Auth";
 import HomeChat from "./components/HomeChat";
 import BnsLookup from "./components/BnsLookup";
 import CaseTracker from "./components/CaseTracker";
@@ -19,6 +20,63 @@ import "./App.css";
 function App() {
   const [language, setLanguage] = useState("English"); // "English" or "Tamil"
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [authChecking, setAuthChecking] = useState(true);
+
+  useEffect(() => {
+    const cachedToken = localStorage.getItem("needhi_token");
+    const cachedName = localStorage.getItem("needhi_name");
+    const cachedEmail = localStorage.getItem("needhi_email");
+
+    if (cachedToken && cachedName && cachedEmail) {
+      fetch("/api/auth/me", {
+        headers: {
+          "Authorization": `Bearer ${cachedToken}`
+        }
+      })
+      .then(res => {
+        if (res.ok) {
+          setUser({ token: cachedToken, name: cachedName, email: cachedEmail });
+        } else {
+          localStorage.removeItem("needhi_token");
+          localStorage.removeItem("needhi_name");
+          localStorage.removeItem("needhi_email");
+        }
+      })
+      .catch(() => {
+        // Safe offline fallback
+        setUser({ token: cachedToken, name: cachedName, email: cachedEmail });
+      })
+      .finally(() => {
+        setAuthChecking(false);
+      });
+    } else {
+      setAuthChecking(false);
+    }
+  }, []);
+
+  const handleAuthSuccess = (data) => {
+    localStorage.setItem("needhi_token", data.token);
+    localStorage.setItem("needhi_name", data.name);
+    localStorage.setItem("needhi_email", data.email);
+    setUser(data);
+  };
+
+  const handleLogout = () => {
+    const token = localStorage.getItem("needhi_token");
+    if (token) {
+      fetch("/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      }).catch(err => console.error(err));
+    }
+    localStorage.removeItem("needhi_token");
+    localStorage.removeItem("needhi_name");
+    localStorage.removeItem("needhi_email");
+    setUser(null);
+  };
 
   // Sticky helplines for banner
   const bannerHelplines = [
@@ -28,8 +86,22 @@ function App() {
     { label: "Medical", num: "108", icon: <FaHeartbeat /> }
   ];
 
+  if (authChecking) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", width: "100vw", height: "100vh", backgroundColor: "#0a0d16", color: "#c9a84c", flexDirection: "column", gap: "20px" }}>
+        <FaBalanceScale style={{ fontSize: "4rem", animation: "pulse 1.5s infinite" }} />
+        <p style={{ fontFamily: "Inter, sans-serif", fontSize: "1.1rem", letterSpacing: "1px" }}>Loading Needhi AI...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Auth onAuthSuccess={handleAuthSuccess} language={language} />;
+  }
+
   return (
     <div className="app-container">
+
       {/* Background logo watermark */}
       <div className="app-watermark"></div>
 
@@ -39,7 +111,10 @@ function App() {
         setLanguage={setLanguage}
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
+        user={user}
+        onLogout={handleLogout}
       />
+
 
       {/* Mobile Drawer Header */}
       <header className="mobile-header">
@@ -87,7 +162,7 @@ function App() {
         {/* View Component */}
         <main style={{ flex: 1, position: "relative", zIndex: 1 }}>
           <Routes>
-            <Route path="/" element={<HomeChat language={language} />} />
+            <Route path="/" element={<HomeChat language={language} user={user} />} />
             <Route path="/bns" element={<BnsLookup language={language} />} />
             <Route path="/predictor" element={<CasePredictor language={language} />} />
             <Route path="/fir" element={<FirWizard language={language} />} />
@@ -96,8 +171,8 @@ function App() {
             <Route path="/simplifier" element={<LegalSimplifier language={language} />} />
             <Route path="/limitations" element={<LimitationsChecker language={language} />} />
             <Route path="/rights" element={<RightsExplorer language={language} />} />
-            <Route path="/lawyers" element={<LawyerBooking language={language} />} />
-            <Route path="/case" element={<CaseTracker language={language} />} />
+            <Route path="/lawyers" element={<LawyerBooking language={language} user={user} />} />
+            <Route path="/case" element={<CaseTracker language={language} user={user} />} />
             <Route path="/about" element={<AboutContact language={language} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

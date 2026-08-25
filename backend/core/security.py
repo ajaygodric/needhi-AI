@@ -3,6 +3,8 @@ import time
 import logging
 import sqlite3
 import threading
+import hashlib
+import secrets
 from typing import Optional
 from collections import defaultdict
 from fastapi import HTTPException, Request
@@ -149,3 +151,76 @@ def check_rate_limit_data(request: Request):
     client_ip = request.client.host if request.client else "unknown"
     if not check_db_rate_limit(client_ip, "data", limit=20, window=60):
         raise HTTPException(status_code=429, detail="Too many requests. Please try again in a minute.")
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    pwd_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
+    return f"{salt}:{pwd_hash.hex()}"
+
+def verify_password(password: str, password_hash: str) -> bool:
+    try:
+        salt, stored_hash = password_hash.split(":")
+        new_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
+        return new_hash.hex() == stored_hash
+    except Exception:
+        return False
+
+def create_session(user_id: int) -> str:
+    token = secrets.token_hex(32)
+    expires_at = time.time() + 86400  # 24 hours
+    conn = sqlite3.connect(DATABASE_FILE)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)", (token, user_id, expires_at))
+        conn.commit()
+    finally:
+        conn.close()
+    return token
+
+def verify_session(token: str) -> Optional[int]:
+    if not token:
+        return None
+    conn = sqlite3.connect(DATABASE_FILE)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT user_id, expires_at FROM sessions WHERE token = ?", (token,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        user_id, expires_at = row
+        if time.time() > expires_at:
+            cursor.execute("DELETE FROM sessions WHERE token = ?", (token,))
+            conn.commit()
+            return None
+        return user_id
+    except Exception:
+        return None
+    finally:
+        conn.close()
+
+def delete_session(token: str):
+    conn = sqlite3.connect(DATABASE_FILE)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM sessions WHERE token = ?", (token,))
+        conn.commit()
+    finally:
+        conn.close()
+
+def get_current_user(request: Request) -> int:
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization header.")
+    token = auth_header.split(" ")[1]
+    user_id = verify_session(token)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Session expired or invalid. Please login again.")
+    return user_id
+
+def get_optional_user(request: Request) -> Optional[int]:
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header.split(" ")[1]
+    return verify_session(token)
+

@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Request, Depends, Response
 from core.config import DATABASE_FILE
-from core.security import check_rate_limit_data, encrypt_field, decrypt_field
+from core.security import check_rate_limit_data, encrypt_field, decrypt_field, get_current_user
 from core.utils import send_email_notification
 from core.schemas import CaseSubscribeRequest
 
@@ -44,10 +44,21 @@ def get_cases(search: str = "", search_type: str = "CNR Number"):
     return [json.loads(row[0]) for row in rows]
 
 @router.post("/api/cases/subscribe", dependencies=[Depends(check_rate_limit_data)])
-def subscribe_to_case(req: CaseSubscribeRequest, request: Request):
+def subscribe_to_case(req: CaseSubscribeRequest, request: Request, user_id: int = Depends(get_current_user)):
+    conn = sqlite3.connect(DATABASE_FILE)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT email, name FROM users WHERE id = ?", (user_id,))
+        user_row = cursor.fetchone()
+        if not user_row:
+            raise HTTPException(status_code=404, detail="User not found")
+        user_email, user_name = user_row
+    finally:
+        conn.close()
+
     cnr = req.cnr.strip()
-    email = req.email.strip().lower()
-    client_name = req.client_name.strip()
+    email = user_email.strip().lower()
+    client_name = req.client_name.strip() if req.client_name else user_name
     language = req.language
     
     if not cnr or not email or not client_name:
@@ -55,53 +66,58 @@ def subscribe_to_case(req: CaseSubscribeRequest, request: Request):
         
     # Check if case exists to get the details from SQLite
     conn = sqlite3.connect(DATABASE_FILE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT raw_json FROM cases WHERE LOWER(cnr) = ?", (cnr.lower(),))
-    row = cursor.fetchone()
-    if not row:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Case with this CNR number not found")
-        
-    case_details = json.loads(row[0])
-    
-    # Check if already subscribed and verified in SQLite
-    cursor.execute("SELECT email, verified FROM subscriptions WHERE LOWER(cnr) = ?", (cnr.lower(),))
-    rows = cursor.fetchall()
-    already_subscribed = False
-    for enc_email, verified in rows:
-        dec_email = decrypt_field(enc_email)
-        if dec_email.lower() == email and verified == 1:
-            already_subscribed = True
-            break
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT raw_json FROM cases WHERE LOWER(cnr) = ?", (cnr.lower(),))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Case with this CNR number not found")
             
-    if already_subscribed:
-        conn.close()
-        return {
-            "status": "already_subscribed",
-            "message": "You are already subscribed to this case."
-        }
+        case_details = json.loads(row[0])
         
-    # Delete any pending subscriptions for this cnr + email to avoid duplicate rows
-    cursor.execute("SELECT id, email FROM subscriptions WHERE LOWER(cnr) = ?", (cnr.lower(),))
-    all_subs = cursor.fetchall()
-    for sub_id, enc_email in all_subs:
-        if decrypt_field(enc_email).lower() == email:
-            cursor.execute("DELETE FROM subscriptions WHERE id = ?", (sub_id,))
+        # Check if already subscribed and verified in SQLite
+        cursor.execute("SELECT email, verified FROM subscriptions WHERE LOWER(cnr) = ?", (cnr.lower(),))
+        rows = cursor.fetchall()
+        already_subscribed = False
+        for enc_email, verified in rows:
+            dec_email = decrypt_field(enc_email)
+            if dec_email.lower() == email and verified == 1:
+                already_subscribed = True
+                break
+                
+        if already_subscribed:
+            return {
+                "status": "already_subscribed",
+                "message": "You are already subscribed to this case."
+            }
             
-    verification_token = os.urandom(16).hex()
-    now_str = datetime.now().isoformat()
-    
-    cursor.execute("""
-    INSERT INTO subscriptions (cnr, email, client_name, language, verification_token, verified, subscribed_at, timestamp)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        cnr, encrypt_field(email), encrypt_field(client_name), language,
-        verification_token, 0, now_str, now_str
-    ))
-    
-    conn.commit()
-    conn.close()
-    
+        # Delete any pending subscriptions for this cnr + email to avoid duplicate rows
+        cursor.execute("SELECT id, email FROM subscriptions WHERE LOWER(cnr) = ?", (cnr.lower(),))
+        all_subs = cursor.fetchall()
+        for sub_id, enc_email in all_subs:
+            if decrypt_field(enc_email).lower() == email:
+                cursor.execute("DELETE FROM subscriptions WHERE id = ?", (sub_id,))
+                
+        verification_token = os.urandom(16).hex()
+        now_str = datetime.now().isoformat()
+        
+        cursor.execute("""
+        INSERT INTO subscriptions (cnr, email, client_name, language, verification_token, verified, subscribed_at, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            cnr, encrypt_field(email), encrypt_field(client_name), language,
+            verification_token, 0, now_str, now_str
+        ))
+        
+        conn.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed SQLite operation in subscribe_to_case")
+        raise HTTPException(status_code=500, detail="Database failure")
+    finally:
+        conn.close()
+        
     # Send verification email containing verification link
     confirm_url = f"{request.base_url}api/cases/confirm-subscription?token={verification_token}"
     
@@ -143,6 +159,43 @@ Needhi AI Legal Suite.
         "email_sent": email_sent,
         "email_status": email_status
     }
+
+@router.get("/api/cases/my-subscriptions")
+def get_my_subscriptions(user_id: int = Depends(get_current_user)):
+    conn = sqlite3.connect(DATABASE_FILE)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT email FROM users WHERE id = ?", (user_id,))
+        user_row = cursor.fetchone()
+        if not user_row:
+            raise HTTPException(status_code=404, detail="User not found.")
+        user_email = user_row[0].strip().lower()
+        
+        cursor.execute("""
+            SELECT s.cnr, s.email, s.client_name, s.language, s.verified, s.subscribed_at, c.raw_json 
+            FROM subscriptions s 
+            LEFT JOIN cases c ON LOWER(s.cnr) = LOWER(c.cnr)
+        """)
+        rows = cursor.fetchall()
+        
+        my_subs = []
+        for row in rows:
+            cnr, enc_email, enc_client_name, language, verified, subscribed_at, raw_json = row
+            decrypted_email = decrypt_field(enc_email).strip().lower()
+            if decrypted_email == user_email:
+                case_info = json.loads(raw_json) if raw_json else {"cnr": cnr, "title": "Unknown Case"}
+                my_subs.append({
+                    "cnr": cnr,
+                    "client_name": decrypt_field(enc_client_name),
+                    "language": language,
+                    "verified": verified,
+                    "subscribed_at": subscribed_at,
+                    "case_details": case_info
+                })
+        return my_subs
+    finally:
+        conn.close()
+
 
 @router.get("/api/cases/confirm-subscription")
 def confirm_subscription(token: str):

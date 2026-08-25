@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { searchCases, downloadPdf, subscribeToCase } from "../utils/api";
 import { FaSearch, FaHistory, FaGavel, FaHourglassHalf, FaRegFolderOpen, FaMapMarkerAlt, FaDownload, FaEnvelope } from "react-icons/fa";
 
-const CaseTracker = ({ language }) => {
+const CaseTracker = ({ language, user }) => {
   const [searchVal, setSearchVal] = useState("");
   const [searchType, setSearchType] = useState("CNR Number");
   const [courtType, setCourtType] = useState("District Court");
@@ -13,10 +13,41 @@ const CaseTracker = ({ language }) => {
 
   // Email alerts subscription and PDF states
   const [activeSubCnr, setActiveSubCnr] = useState(null);
-  const [subName, setSubName] = useState("");
-  const [subEmail, setSubEmail] = useState("");
   const [subLoading, setSubLoading] = useState(false);
   const [subscribedCnrs, setSubscribedCnrs] = useState({});
+  const [mySubscriptions, setMySubscriptions] = useState([]);
+  const [isMySubsLoading, setIsMySubsLoading] = useState(false);
+
+  const fetchMySubscriptions = async () => {
+    if (!user) return;
+    setIsMySubsLoading(true);
+    try {
+      const response = await fetch("/api/cases/my-subscriptions", {
+        headers: {
+          "Authorization": `Bearer ${user.token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setMySubscriptions(data || []);
+        
+        const cnrMap = {};
+        data.forEach(sub => {
+          cnrMap[sub.cnr] = true;
+        });
+        setSubscribedCnrs(cnrMap);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsMySubsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMySubscriptions();
+  }, [user]);
+
 
   const handleDownloadCasePdf = (item) => {
     const isTamil = language === "Tamil";
@@ -68,14 +99,13 @@ const CaseTracker = ({ language }) => {
   };
 
   const handleSubscribe = async (cnr) => {
-    if (!subName.trim() || !subEmail.trim()) return;
+    if (!user) return;
     setSubLoading(true);
     try {
-      await subscribeToCase(cnr, subEmail, subName, language);
-      setSubscribedCnrs(prev => ({ ...prev, [cnr]: subEmail }));
+      await subscribeToCase(cnr, user.email, user.name, language);
+      setSubscribedCnrs(prev => ({ ...prev, [cnr]: user.email }));
       setActiveSubCnr(null);
-      setSubName("");
-      setSubEmail("");
+      await fetchMySubscriptions();
       alert(language === "Tamil" 
         ? "மின்னஞ்சல் விழிப்பூட்டல்களுக்கு வெற்றிகரமாக பதிவு செய்யப்பட்டுள்ளது! உறுதிப்படுத்தல் மின்னஞ்சல் அனுப்பப்பட்டது." 
         : "Successfully subscribed to email alerts! A confirmation email has been sent.");
@@ -294,68 +324,16 @@ const CaseTracker = ({ language }) => {
                   ) : (
                     <button 
                       className="btn btn-small btn-secondary" 
-                      onClick={() => setActiveSubCnr(activeSubCnr === item.cnr ? null : item.cnr)}
+                      onClick={() => handleSubscribe(item.cnr)}
+                      disabled={subLoading}
                       style={{ padding: "6px 12px", fontSize: "0.82rem", display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(255,255,255,0.04)" }}
                     >
-                      <FaEnvelope /> {language === "Tamil" ? "விழிப்பூட்டல்" : "Subscribe"}
+                      <FaEnvelope /> {subLoading ? "..." : (language === "Tamil" ? "விழிப்பூட்டல்" : "Subscribe")}
                     </button>
                   )}
                 </div>
               </div>
             </div>
-
-            {/* Subscription Form Panel */}
-            {activeSubCnr === item.cnr && (
-              <div style={{ 
-                background: "rgba(201, 168, 76, 0.04)", 
-                border: "1px solid var(--border-gold)", 
-                borderRadius: "8px", 
-                padding: "15px", 
-                margin: "15px 0"
-              }}>
-                <h5 style={{ color: "var(--accent-gold-light)", marginBottom: "8px", fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <FaEnvelope /> {language === "Tamil" ? "வழக்கு விழிப்பூட்டல்களுக்கு பதிவு செய்யவும்" : "Subscribe to Case Email Alerts"}
-                </h5>
-                <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: "12px" }}>
-                  {language === "Tamil" 
-                    ? "விசாரணை தேதிகள் மற்றும் நிலை புதுப்பிக்கப்படும் போது உங்கள் மின்னஞ்சலுக்கு அறிவிப்புகளைப் பெறுங்கள்."
-                    : "Receive automated email updates whenever next hearing dates or stages are updated for this case."}
-                </p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                  <input
-                    type="text"
-                    className="input-control"
-                    placeholder={language === "Tamil" ? "உங்கள் பெயர்" : "Your Name"}
-                    value={subName}
-                    onChange={(e) => setSubName(e.target.value)}
-                    style={{ flex: 1, minWidth: "150px", fontSize: "0.85rem", padding: "8px 12px" }}
-                  />
-                  <input
-                    type="email"
-                    className="input-control"
-                    placeholder={language === "Tamil" ? "மின்னஞ்சல் முகவரி" : "Email Address"}
-                    value={subEmail}
-                    onChange={(e) => setSubEmail(e.target.value)}
-                    style={{ flex: 1, minWidth: "150px", fontSize: "0.85rem", padding: "8px 12px" }}
-                  />
-                  <button 
-                    className="btn btn-primary" 
-                    onClick={() => handleSubscribe(item.cnr)}
-                    disabled={subLoading || !subName.trim() || !subEmail.trim()}
-                    style={{ padding: "8px 16px", fontSize: "0.85rem" }}
-                  >
-                    {subLoading ? (language === "Tamil" ? "பதிவு செய்யப்படுகிறது..." : "Subscribing...") : (language === "Tamil" ? "உறுதி செய்" : "Confirm")}
-                  </button>
-                  <button 
-                    className="btn" 
-                    onClick={() => { setActiveSubCnr(null); setSubName(""); setSubEmail(""); }}
-                    style={{ padding: "8px 16px", fontSize: "0.85rem", background: "rgba(255,255,255,0.05)" }}
-                  >
-                    {language === "Tamil" ? "ரத்து" : "Cancel"}
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Pipeline Stage */}
             {renderPipeline(item.timeline)}
@@ -408,6 +386,69 @@ const CaseTracker = ({ language }) => {
             
           </div>
         ))
+      )}
+
+      {!hasSearched && !isLoading && (
+        <div style={{ marginTop: "20px", animation: "fadeIn 0.3s ease" }}>
+          <h3 style={{ fontFamily: "var(--font-serif)", color: "var(--accent-gold-light)", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "10px" }}>
+            <FaHistory style={{ color: "var(--accent-gold)" }} />
+            {language === "Tamil" ? "கண்காணிக்கப்படும் வழக்குகள்" : "Your Tracked Cases"}
+          </h3>
+          
+          {isMySubsLoading ? (
+            <div className="card loading-pulse" style={{ height: "150px" }}></div>
+          ) : mySubscriptions.length === 0 ? (
+            <div className="card" style={{ padding: "40px", textAlign: "center" }}>
+              <FaRegFolderOpen style={{ fontSize: "2.5rem", color: "var(--border-gold)", marginBottom: "12px" }} />
+              <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem" }}>
+                {language === "Tamil" 
+                  ? "நீங்கள் இன்னும் எந்த வழக்கையும் கண்காணிக்கவில்லை. தேடல் முடிவுகளில் 'விழிப்பூட்டல்' ஐக் கிளிக் செய்க." 
+                  : "You are not tracking any cases yet. Search for a case and click 'Subscribe' to receive email alerts."}
+              </p>
+            </div>
+          ) : (
+            <div className="grid-2" style={{ gap: "20px" }}>
+              {mySubscriptions.map((sub) => (
+                <div key={sub.cnr} className="card" style={{ border: "1px solid var(--border-gold)", padding: "18px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <span className="badge badge-blue" style={{ fontSize: "0.72rem", marginBottom: "4px" }}>
+                        {sub.case_details.case_no}
+                      </span>
+                      <h4 style={{ fontFamily: "var(--font-serif)", fontSize: "1.1rem", margin: 0, color: "var(--text-primary)" }}>
+                        {language === "Tamil" ? sub.case_details.tamil_title || sub.case_details.title : sub.case_details.title}
+                      </h4>
+                    </div>
+                    <button 
+                      className="btn btn-small" 
+                      onClick={() => handleDownloadCasePdf(sub.case_details)}
+                      style={{ padding: "4px 8px", fontSize: "0.78rem" }}
+                    >
+                      <FaDownload />
+                    </button>
+                  </div>
+                  
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "0.82rem", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "8px", marginTop: "5px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-secondary)" }}>CNR:</span>
+                      <span style={{ fontFamily: "monospace", color: "var(--accent-gold)" }}>{sub.cnr}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-secondary)" }}>Next Hearing:</span>
+                      <span style={{ fontWeight: "600", color: "var(--accent-gold-light)" }}>
+                        {sub.case_details.next_hearing}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-secondary)" }}>Current Stage:</span>
+                      <span>{language === "Tamil" ? sub.case_details.tamil_stage || sub.case_details.current_stage : sub.case_details.current_stage}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

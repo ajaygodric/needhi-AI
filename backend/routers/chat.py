@@ -8,19 +8,36 @@ import pypdf
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from core.gemini import generate_gemini_content
-from core.security import check_rate_limit_ai
-from core.db import search_knowledge_base
-from core.schemas import ChatRequest, ChatDocRequest
+from core.security import check_rate_limit_ai, get_current_user, get_optional_user
+from core.db import search_knowledge_base, DATABASE_FILE
+from core.schemas import ChatRequest, ChatDocRequest, SearchHistoryItem
+import sqlite3
+import time
+
 
 logger = logging.getLogger("needhi.routers.chat")
 
 router = APIRouter()
 
 @router.post("/api/chat", dependencies=[Depends(check_rate_limit_ai)])
-async def chat_endpoint(req: ChatRequest):
+async def chat_endpoint(req: ChatRequest, user_id: Optional[int] = Depends(get_optional_user)):
     query = req.query
     language = req.language
     history = req.history[-10:] if req.history else []
+    
+    if user_id is not None:
+        try:
+            conn = sqlite3.connect(DATABASE_FILE)
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO search_history (user_id, query, timestamp) VALUES (?, ?, ?)",
+                (user_id, query, time.time())
+            )
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Failed to save search history: {e}")
+
     
     # Prevent RAG pollution for simple greetings and short conversational messages
     query_clean = re.sub(r'[^\w\s]', '', query).strip().lower()
@@ -332,3 +349,28 @@ Answer the user's question using ONLY the context of the uploaded document. You 
     except Exception as e:
         logger.exception("Error in chat_doc_endpoint")
         raise HTTPException(status_code=500, detail="An internal error occurred during document chat.")
+
+from typing import List
+@router.get("/api/chat/history", response_model=List[SearchHistoryItem])
+def get_chat_history(user_id: int = Depends(get_current_user)):
+    conn = sqlite3.connect(DATABASE_FILE)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT query, timestamp FROM search_history WHERE user_id = ? ORDER BY id DESC LIMIT 20", (user_id,))
+        rows = cursor.fetchall()
+        return [SearchHistoryItem(query=row[0], timestamp=row[1]) for row in rows]
+    finally:
+        conn.close()
+
+@router.delete("/api/chat/history")
+def clear_chat_history(user_id: int = Depends(get_current_user)):
+    conn = sqlite3.connect(DATABASE_FILE)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM search_history WHERE user_id = ?", (user_id,))
+        conn.commit()
+        return {"status": "success", "message": "Search history cleared."}
+    finally:
+        conn.close()
+
+

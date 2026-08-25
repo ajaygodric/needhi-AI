@@ -11,7 +11,7 @@ from core.db import init_db, purge_old_records_db
 from core.security import check_rate_limit_ai
 
 # Router imports
-from routers import chat, cases, bookings, fir, bns, docs, tools
+from routers import auth, chat, cases, bookings, fir, bns, docs, tools
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -30,7 +30,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # Startup Lifespan events
@@ -43,6 +43,7 @@ def startup_event():
     logger.info("Needhi AI Backend startup sequence complete.")
 
 # Register sub-routers
+app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(cases.router)
 app.include_router(bookings.router)
@@ -50,6 +51,7 @@ app.include_router(fir.router)
 app.include_router(bns.router)
 app.include_router(docs.router)
 app.include_router(tools.router)
+
 
 # Serve React static files in production if dist exists
 dist_path = os.path.join(ROOT_DIR, "frontend", "dist")

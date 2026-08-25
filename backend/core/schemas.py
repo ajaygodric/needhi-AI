@@ -65,3 +65,26 @@ class CaseSubscribeRequest(BaseModel):
 class BnsLookupRequest(BaseModel):
     term: str = Field(default="", max_length=200)
     category: str = Field(default="", max_length=100)
+
+class UserRegisterRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100)
+    email: EmailStr = Field(..., max_length=255)
+    password: str = Field(..., min_length=6, max_length=100)
+
+class UserLoginRequest(BaseModel):
+    email: EmailStr = Field(..., max_length=255)
+    password: str = Field(..., min_length=6, max_length=100)
+
+class AuthResponse(BaseModel):
+    token: str
+    name: str
+    email: EmailStr
+
+class UserMeResponse(BaseModel):
+    name: str
+    email: EmailStr
+
+class SearchHistoryItem(BaseModel):
+    query: str
+    timestamp: float
+

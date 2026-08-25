@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { searchLawyers, bookLawyer } from "../utils/api";
 import { FaCalendarAlt, FaStar, FaCheckCircle, FaUserShield, FaTimes, FaGavel, FaUniversity, FaBriefcase, FaMapMarkerAlt, FaGraduationCap, FaPhone, FaEnvelope, FaExclamationTriangle } from "react-icons/fa";
 
-const LawyerBooking = ({ language }) => {
-  const [activeTab, setActiveTab] = useState("directory"); // "directory", "nalsa"
+const LawyerBooking = ({ language, user }) => {
+  const [activeTab, setActiveTab] = useState("directory"); // "directory", "nalsa", "my-bookings"
   const [lawyers, setLawyers] = useState([]);
   const [selectedSpecialization, setSelectedSpecialization] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
@@ -24,8 +24,39 @@ const LawyerBooking = ({ language }) => {
   const [isBookingLoading, setIsBookingLoading] = useState(false);
   const [bookingError, setBookingError] = useState("");
 
+  // My Bookings State
+  const [myBookings, setMyBookings] = useState([]);
+  const [isMyBookingsLoading, setIsMyBookingsLoading] = useState(false);
+
   // NALSA directory state
   const [nalsaState, setNalsaState] = useState("Tamil Nadu");
+
+  const fetchMyBookings = async () => {
+    if (!user) return;
+    setIsMyBookingsLoading(true);
+    try {
+      const response = await fetch("/api/bookings/my-bookings", {
+        headers: {
+          "Authorization": `Bearer ${user.token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setMyBookings(data || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsMyBookingsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "my-bookings") {
+      fetchMyBookings();
+    }
+  }, [activeTab, user]);
+
 
   const specialties = [
     { id: "", label: { English: "All Specialties", Tamil: "அனைத்து பிரிவுகள்" } },
@@ -166,6 +197,14 @@ const LawyerBooking = ({ language }) => {
         >
           <FaUniversity />
           <span>{language === "Tamil" ? "இலவச சட்ட உதவி மையங்கள் (NALSA)" : "Free Legal Aid Centers (NALSA)"}</span>
+        </button>
+        <button
+          className={`rights-tab ${activeTab === "my-bookings" ? "active" : ""}`}
+          onClick={() => setActiveTab("my-bookings")}
+          style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}
+        >
+          <FaCalendarAlt />
+          <span>{language === "Tamil" ? "எனது முன்பதிவுகள்" : "My Bookings"}</span>
         </button>
       </div>
 
@@ -447,6 +486,76 @@ const LawyerBooking = ({ language }) => {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB 3: My Bookings List */}
+      {activeTab === "my-bookings" && (
+        <div style={{ animation: "fadeIn 0.3s ease" }}>
+          {isMyBookingsLoading ? (
+            <div className="grid-2">
+              {[1, 2].map(n => (
+                <div key={n} className="card loading-pulse" style={{ height: "180px" }}></div>
+              ))}
+            </div>
+          ) : myBookings.length === 0 ? (
+            <div className="card" style={{ textAlign: "center", padding: "40px" }}>
+              <FaCalendarAlt style={{ fontSize: "2.5rem", color: "var(--border-gold)", marginBottom: "15px" }} />
+              <p style={{ color: "var(--text-secondary)" }}>
+                {language === "Tamil" ? "முன்பதிவுகள் எதுவும் இல்லை." : "You have no consultation bookings scheduled."}
+              </p>
+            </div>
+          ) : (
+            <div className="grid-2" style={{ gap: "20px" }}>
+              {myBookings.map((b) => (
+                <div key={b.id} className="card" style={{ border: "1px solid var(--border-gold)", padding: "20px", display: "flex", flexDirection: "column", gap: "10px", position: "relative" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
+                    <div>
+                      <h3 style={{ fontSize: "1.15rem", fontFamily: "var(--font-serif)", color: "var(--accent-gold-light)", margin: 0 }}>
+                        {b.lawyer_name}
+                      </h3>
+                      <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", textTransform: "uppercase" }}>
+                        {b.lawyer_specialty}
+                      </span>
+                    </div>
+                    <span 
+                      style={{ 
+                        fontSize: "0.78rem", 
+                        padding: "4px 8px", 
+                        borderRadius: "4px", 
+                        background: "rgba(46,204,113,0.1)", 
+                        border: "1px solid var(--success)", 
+                        color: "var(--success)",
+                        fontWeight: "600"
+                      }}
+                    >
+                      {b.status}
+                    </span>
+                  </div>
+                  
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "0.85rem", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "10px", marginTop: "5px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-secondary)" }}>Ticket Code:</span>
+                      <span style={{ fontFamily: "monospace", fontWeight: "700", color: "var(--accent-gold)" }}>{b.booking_code}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-secondary)" }}>Date & Time:</span>
+                      <span style={{ color: "var(--text-primary)", fontWeight: "600" }}>{b.date} at {b.slot}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-secondary)" }}>Client:</span>
+                      <span>{b.client_name} ({b.client_phone})</span>
+                    </div>
+                    {b.details && (
+                      <div style={{ marginTop: "5px", padding: "8px", background: "rgba(0,0,0,0.15)", borderRadius: "6px", fontSize: "0.8rem", color: "var(--text-secondary)", fontStyle: "italic" }}>
+                        "{b.details}"
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

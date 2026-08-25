@@ -88,6 +88,39 @@ def init_db():
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_rate_limits ON rate_limits (ip, endpoint, timestamp)")
         
+        # Create users table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            name TEXT NOT NULL,
+            created_at REAL NOT NULL
+        )
+        """)
+        
+        # Create sessions table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            expires_at REAL NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+        """)
+        
+        # Create search_history table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS search_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            query TEXT NOT NULL,
+            timestamp REAL NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+        """)
+
+        
         # Migration from cases.json
         cursor.execute("SELECT COUNT(*) FROM cases")
         if cursor.fetchone()[0] == 0:

@@ -140,18 +140,30 @@ def test_generate_fir():
 
 def test_cases_subscribe():
     """Verify case subscription register saves details to SQLite."""
+    import time
+    dynamic_sub_email = f"sub-test-{time.time()}@needhi.ai"
+    reg = client.post("/api/auth/register", json={
+        "name": "Sub User",
+        "email": dynamic_sub_email,
+        "password": "SecurePassword"
+    })
+    assert reg.status_code == 200
+    token = reg.json()["token"]
+    
     cases_res = client.get("/api/cases")
     if cases_res.json():
         test_cnr = cases_res.json()[0]["cnr"]
         response = client.post("/api/cases/subscribe", json={
             "cnr": test_cnr,
-            "email": "test-subscriber@needhi.ai",
-            "client_name": "Test User",
+            "email": dynamic_sub_email,
+            "client_name": "Sub User",
             "language": "English"
-        })
+        }, headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
         data = response.json()
         assert data["status"] in ["success", "already_subscribed"]
+
+
 
 
 def test_spa_catch_all():
@@ -176,5 +188,118 @@ def test_static_asset_logo():
 # Stop the mock after tests finish
 def teardown_module(module):
     mock_gen.stop()
+
+
+def test_auth_and_search_history_flow():
+    """Verify complete registration, login, history logging, data isolation, and logout flow."""
+    import time
+    dynamic_email = f"auth-test-{time.time()}@needhi.ai"
+
+    # 1. Register a new user
+    reg_response = client.post("/api/auth/register", json={
+        "name": "Test Auth User",
+        "email": dynamic_email,
+        "password": "SecurePassword123"
+    })
+    assert reg_response.status_code == 200
+    reg_data = reg_response.json()
+    assert "token" in reg_data
+    assert reg_data["email"] == dynamic_email
+
+    token = reg_data["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Register again with same email should fail (400)
+    reg_fail = client.post("/api/auth/register", json={
+        "name": "Test Auth User 2",
+        "email": dynamic_email,
+        "password": "AnotherPassword"
+    })
+    assert reg_fail.status_code == 400
+
+    # 3. Check /api/auth/me profile retrieve
+    me_response = client.get("/api/auth/me", headers=headers)
+    assert me_response.status_code == 200
+    assert me_response.json()["email"] == dynamic_email
+
+    # 4. Login user
+    login_response = client.post("/api/auth/login", json={
+        "email": dynamic_email,
+        "password": "SecurePassword123"
+    })
+    assert login_response.status_code == 200
+    assert "token" in login_response.json()
+
+    # 5. RAG query with authorization header logs search history
+    chat_response = client.post("/api/chat", json={
+        "query": "Is trespass an offense under BNS?",
+        "language": "English",
+        "history": []
+    }, headers=headers)
+    assert chat_response.status_code == 200
+
+    # 6. Retrieve history list
+    hist_response = client.get("/api/chat/history", headers=headers)
+    assert hist_response.status_code == 200
+    hist_data = hist_response.json()
+    assert len(hist_data) >= 1
+    assert hist_data[0]["query"] == "Is trespass an offense under BNS?"
+
+    # 7. Book a lawyer with authorization header
+    lawyers_list = client.get("/api/lawyers").json()
+    if lawyers_list:
+        lawyer_id = lawyers_list[0]["id"]
+        book_res = client.post("/api/book-lawyer", json={
+            "lawyer_id": lawyer_id,
+            "client_name": "Test Auth User",
+            "client_email": dynamic_email,
+            "client_phone": "9876543210",
+            "date": "2026-10-10",
+            "slot": "10:00 AM - 11:00 AM",
+            "details": "Property encroachment issue"
+        }, headers=headers)
+        assert book_res.status_code == 200
+        assert "receipt" in book_res.json()
+
+        # 8. Retrieve my-bookings list
+        my_bookings_res = client.get("/api/bookings/my-bookings", headers=headers)
+        assert my_bookings_res.status_code == 200
+        my_bookings = my_bookings_res.json()
+        assert len(my_bookings) >= 1
+        assert str(my_bookings[0]["lawyer_id"]) == str(lawyer_id)
+
+    # 9. Case Subscribe with authorization header
+    cases_list = client.get("/api/cases").json()
+    if cases_list:
+        cnr = cases_list[0]["cnr"]
+        sub_res = client.post("/api/cases/subscribe", json={
+            "cnr": cnr,
+            "email": dynamic_email,
+            "client_name": "Test Auth User",
+            "language": "English"
+        }, headers=headers)
+        assert sub_res.status_code == 200
+
+        # 10. Retrieve my-subscriptions list
+        my_subs_res = client.get("/api/cases/my-subscriptions", headers=headers)
+        assert my_subs_res.status_code == 200
+        my_subs = my_subs_res.json()
+        assert len(my_subs) >= 1
+        assert my_subs[0]["cnr"] == cnr
+
+    # 10.5 Clear history and verify it is empty
+    clear_res = client.delete("/api/chat/history", headers=headers)
+    assert clear_res.status_code == 200
+    hist_empty_res = client.get("/api/chat/history", headers=headers)
+    assert len(hist_empty_res.json()) == 0
+
+    # 11. Logout user
+    logout_res = client.post("/api/auth/logout", headers=headers)
+    assert logout_res.status_code == 200
+
+    # 12. Retrieve profile again after logout should fail (401)
+    me_fail = client.get("/api/auth/me", headers=headers)
+    assert me_fail.status_code == 401
+
 
 
