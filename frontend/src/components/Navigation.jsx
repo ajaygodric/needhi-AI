@@ -11,13 +11,10 @@ import {
   FaGavel,
   FaClipboardList,
   FaBookOpen,
-  FaClock,
-  FaSun,
-  FaMoon,
-  FaLaptop
+  FaClock
 } from "react-icons/fa";
 
-const Navigation = ({ language, setLanguage, isOpen, setIsOpen, user, onLogout, themeMode, setThemeMode }) => {
+const Navigation = ({ language, isOpen, setIsOpen }) => {
   const menuItems = [
     { id: "home", path: "/", label: { English: "Home", Tamil: "முகப்பு" }, icon: <FaHome /> },
     { id: "bns", path: "/bns", label: { English: "BNS vs IPC Map", Tamil: "BNS vs IPC வரைபடம்" }, icon: <FaBalanceScale /> },
@@ -61,70 +58,7 @@ const Navigation = ({ language, setLanguage, isOpen, setIsOpen, user, onLogout, 
       </nav>
 
       <div className="sidebar-footer">
-        {user && (
-          <div className="sidebar-user-card" style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px", backgroundColor: "var(--bg-primary)", borderRadius: "8px", border: "1px solid var(--border-gold)", marginBottom: "8px", textAlign: "left" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <div style={{ width: "28px", height: "28px", minWidth: "28px", borderRadius: "50%", backgroundColor: "var(--accent-gold)", color: "var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", fontSize: "0.85rem" }}>
-                {user.name.charAt(0).toUpperCase()}
-              </div>
-              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-                <div style={{ fontWeight: "600", fontSize: "0.85rem", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name}</div>
-                <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.email}</div>
-              </div>
-            </div>
-            <button 
-              onClick={onLogout}
-              style={{ background: "transparent", border: "none", color: "var(--danger)", fontSize: "0.75rem", fontWeight: "600", cursor: "pointer", textAlign: "left", padding: "4px 0 0 0", width: "fit-content" }}
-            >
-              {language === "Tamil" ? "வெளியேறுக" : "Logout"}
-            </button>
-          </div>
-        )}
-
-        {/* Theme Switcher */}
-        <div className="theme-toggle" title="Theme Selector">
-          <button
-            type="button"
-            className={`theme-btn ${themeMode === "system" ? "active" : ""}`}
-            onClick={() => setThemeMode("system")}
-          >
-            <FaLaptop /> {language === "Tamil" ? "சிஸ்டம்" : "Auto"}
-          </button>
-          <button
-            type="button"
-            className={`theme-btn ${themeMode === "light" ? "active" : ""}`}
-            onClick={() => setThemeMode("light")}
-          >
-            <FaSun /> {language === "Tamil" ? "பகல்" : "Light"}
-          </button>
-          <button
-            type="button"
-            className={`theme-btn ${themeMode === "dark" ? "active" : ""}`}
-            onClick={() => setThemeMode("dark")}
-          >
-            <FaMoon /> {language === "Tamil" ? "இரவு" : "Dark"}
-          </button>
-        </div>
-
-        {/* Language Switcher */}
-        <div className="lang-toggle">
-          <button
-            type="button"
-            className={`lang-btn ${language === "English" ? "active" : ""}`}
-            onClick={() => setLanguage("English")}
-          >
-            English
-          </button>
-          <button
-            type="button"
-            className={`lang-btn ${language === "Tamil" ? "active" : ""}`}
-            onClick={() => setLanguage("Tamil")}
-          >
-            தமிழ்
-          </button>
-        </div>
-
-        <div style={{ fontSize: "0.68rem", color: "var(--text-muted)", marginTop: "2px" }}>
+        <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", letterSpacing: "0.5px" }}>
           Needhi AI © 2026
         </div>
       </div>
@@ -133,4 +67,5 @@ const Navigation = ({ language, setLanguage, isOpen, setIsOpen, user, onLogout, 
 };
 
 export default Navigation;
+
 
