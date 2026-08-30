@@ -709,7 +709,7 @@ select.input-control {
   border-right: 1px solid var(--border-gold);
   display: flex;
   flex-direction: column;
-  z-index: 100;
+  z-index: 200;
   transition: transform var(--transition-normal), background var(--transition-normal);
   box-shadow: var(--shadow-sm);
 }
