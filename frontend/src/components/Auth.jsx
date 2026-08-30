@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { FaUser, FaLock, FaEnvelope, FaBalanceScale } from "react-icons/fa";
+import { FcGoogle } from "react-icons/fc";
 
 function Auth({ onAuthSuccess, language }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -8,6 +9,114 @@ function Auth({ onAuthSuccess, language }) {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleClientId, setGoogleClientId] = useState("");
+  const googleBtnRef = useRef(null);
+
+  // Fetch Google Client ID and initialize Google Identity Services
+  useEffect(() => {
+    fetch("/api/auth/config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.google_client_id) {
+          setGoogleClientId(data.google_client_id);
+          initGoogleSignIn(data.google_client_id);
+        }
+      })
+      .catch((err) => console.error("Failed to load auth config:", err));
+  }, []);
+
+  const handleGoogleCredentialResponse = async (response) => {
+    if (!response || !response.credential) {
+      setError("Google authentication was cancelled or failed.");
+      return;
+    }
+
+    setError("");
+    setGoogleLoading(true);
+
+    try {
+      // Send the official Google ID Token (JWT) directly to backend for cryptographic verification
+      const res = await fetch("/api/auth/google", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          credential: response.credential,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Official Google authentication failed.");
+      }
+
+      onAuthSuccess(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const initGoogleSignIn = (clientId) => {
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleCredentialResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      });
+
+      if (googleBtnRef.current) {
+        googleBtnRef.current.innerHTML = "";
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: "filled_blue",
+          size: "large",
+          type: "standard",
+          shape: "rectangular",
+          text: "continue_with",
+          logo_alignment: "left",
+          width: 340,
+        });
+      }
+    } else {
+      // Retry if Google script is still loading
+      const timer = setTimeout(() => {
+        if (window.google?.accounts?.id && googleBtnRef.current) {
+          window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: handleGoogleCredentialResponse,
+            auto_select: false,
+          });
+          googleBtnRef.current.innerHTML = "";
+          window.google.accounts.id.renderButton(googleBtnRef.current, {
+            theme: "filled_blue",
+            size: "large",
+            type: "standard",
+            shape: "rectangular",
+            text: "continue_with",
+            logo_alignment: "left",
+            width: 340,
+          });
+        }
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  };
+
+  const triggerGooglePrompt = () => {
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          console.log("OneTap dismissed or not displayed; rendering standard popup button.");
+        }
+      });
+    } else {
+      setError("Google Sign-In SDK is loading. Please click again in a moment.");
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -54,6 +163,33 @@ function Auth({ onAuthSuccess, language }) {
               ? "நீதிமன்ற உதவி மற்றும் வழிகாட்டி" 
               : "AI-Powered Legal Assistant for Indian Law"}
           </p>
+        </div>
+
+        {/* Official Google Sign-In Container */}
+        <div className="google-auth-wrapper">
+          <div ref={googleBtnRef} id="google-signin-btn" className="google-official-btn-container"></div>
+          
+          {/* Fallback button if GIS button container is not yet populated */}
+          {(!googleClientId || !window.google?.accounts?.id) && (
+            <button 
+              type="button" 
+              className="auth-google-btn"
+              onClick={triggerGooglePrompt}
+              disabled={loading || googleLoading}
+            >
+              <FcGoogle className="google-icon" />
+              <span>
+                {googleLoading 
+                  ? (language === "Tamil" ? "Google சரிபார்க்கிறது..." : "Verifying with Google...") 
+                  : (language === "Tamil" ? "Google உடன் தொடரவும்" : "Continue with Google")}
+              </span>
+            </button>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="auth-divider">
+          <span>{language === "Tamil" ? "அல்லது மின்னஞ்சல் மூலம்" : "or continue with email"}</span>
         </div>
 
         <div className="auth-toggle-buttons">
@@ -111,7 +247,7 @@ function Auth({ onAuthSuccess, language }) {
             />
           </div>
 
-          <button type="submit" className="auth-submit-btn" disabled={loading}>
+          <button type="submit" className="auth-submit-btn" disabled={loading || googleLoading}>
             {loading 
               ? (language === "Tamil" ? "செயலாக்குகிறது..." : "Processing...") 
               : (isLogin 

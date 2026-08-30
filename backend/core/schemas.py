@@ -75,6 +75,12 @@ class UserLoginRequest(BaseModel):
     email: EmailStr = Field(..., max_length=255)
     password: str = Field(..., min_length=6, max_length=100)
 
+class GoogleAuthRequest(BaseModel):
+    credential: str = Field(..., min_length=10, description="Official Google-signed ID token JWT")
+
+class AuthConfigResponse(BaseModel):
+    google_client_id: str
+
 class AuthResponse(BaseModel):
     token: str
     name: str

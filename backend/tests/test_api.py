@@ -1,5 +1,7 @@
 import os
 import sys
+import time
+import json
 from unittest import mock
 import pytest
 
@@ -300,6 +302,49 @@ def test_auth_and_search_history_flow():
     # 12. Retrieve profile again after logout should fail (401)
     me_fail = client.get("/api/auth/me", headers=headers)
     assert me_fail.status_code == 401
+
+def test_google_auth():
+    client = TestClient(app)
+    
+    # 1. Fake/unverified token MUST be rejected with HTTP 401
+    fake_res = client.post("/api/auth/google", json={
+        "credential": "fake_fabricated_token_12345"
+    })
+    assert fake_res.status_code == 401
+    assert "Invalid Google token" in fake_res.json()["detail"]
+
+    # 2. Test verified official Google token flow by mocking Google's tokeninfo response
+    mock_payload = {
+        "email": "verified.official.user@gmail.com",
+        "email_verified": "true",
+        "name": "Official Verified User",
+        "iss": "https://accounts.google.com"
+    }
+    
+    mock_resp = mock.Mock()
+    mock_resp.status = 200
+    mock_resp.read.return_value = json.dumps(mock_payload).encode("utf-8")
+    mock_resp.__enter__ = mock.Mock(return_value=mock_resp)
+    mock_resp.__exit__ = mock.Mock(return_value=None)
+    
+    with mock.patch("urllib.request.urlopen", return_value=mock_resp):
+        res = client.post("/api/auth/google", json={
+            "credential": "valid_official_google_signed_jwt_token_sample"
+        })
+        assert res.status_code == 200
+        data = res.json()
+        assert "token" in data
+        assert data["email"] == "verified.official.user@gmail.com"
+        assert data["name"] == "Official Verified User"
+
+        # Verify authenticated session request with this token
+        headers = {"Authorization": f"Bearer {data['token']}"}
+        me_res = client.get("/api/auth/me", headers=headers)
+        assert me_res.status_code == 200
+        assert me_res.json()["email"] == "verified.official.user@gmail.com"
+
+
+
 
 
 

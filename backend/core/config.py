@@ -17,6 +17,7 @@ else:
     DATA_DIR = STATIC_DATA_DIR
 
 DATABASE_FILE = os.path.join(DATA_DIR, "needhi.db")
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "1083984668472-351v5ek7c8k07g290h2v0v24lq4m0i6l.apps.googleusercontent.com")
 
 # Load API keys from environment variables
 def load_api_keys():
