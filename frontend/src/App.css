@@ -715,34 +715,32 @@ select.input-control {
 }
 
 .sidebar-header {
-  padding: 16px 18px;
+  padding: 10px 0px 24px 0px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
   border-bottom: 1px solid var(--border-subtle);
-  text-align: left;
+  text-align: center;
 }
 .sidebar-logo-img {
-  width: 44px;
-  height: 44px;
+  width: 300px;
+  height: 300px;
   object-fit: contain;
-  margin: 0;
-  border-radius: 8px;
+  margin-top: -55px;
+  margin-bottom: -65px;
 }
 .sidebar-brand h1 {
   font-family: var(--font-serif);
-  font-size: 1.25rem;
-  letter-spacing: 1.5px;
+  font-size: 1.4rem;
+  letter-spacing: 2px;
   color: var(--accent-gold);
   font-weight: 700;
-  line-height: 1;
 }
 .sidebar-brand p {
   font-size: 0.65rem;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
+  letter-spacing: 2px;
   color: var(--text-secondary);
-  margin-top: 3px;
 }
 
 .sidebar-menu {
@@ -854,20 +852,49 @@ select.input-control {
   position: fixed;
   top: 0; left: 0; right: 0;
   height: var(--header-height);
-  background: var(--bg-secondary);
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-gold);
-  z-index: 99;
-  padding: 0 20px;
+  z-index: 150;
+  padding: 0 16px;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
 }
+
+.mobile-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mobile-logo-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.mobile-brand-title {
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--accent-gold);
+  line-height: 1;
+}
+
 .menu-toggle {
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   color: var(--accent-gold);
   background: transparent;
   border: none;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
 }
+
 @media (max-width: 992px) {
   .mobile-header {
     display: flex;
@@ -877,6 +904,21 @@ select.input-control {
   }
   .sidebar.open {
     transform: translateX(0);
+  }
+  .app-topbar {
+    margin: 0 0 20px 0;
+    width: 100%;
+    border-radius: 12px;
+    padding: 10px 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .topbar-helplines {
+    width: 100%;
+  }
+  .topbar-controls {
+    width: 100%;
+    justify-content: flex-end;
   }
 }
 

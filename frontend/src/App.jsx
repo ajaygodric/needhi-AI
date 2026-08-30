@@ -152,8 +152,9 @@ function App() {
         <button className="menu-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
           {isSidebarOpen ? <FaTimes /> : <FaBars />}
         </button>
-        <div style={{ fontFamily: "var(--font-serif)", fontSize: "1.2rem", fontWeight: "700", letterSpacing: "1px", color: "var(--accent-gold)" }}>
-          NEEDHI AI
+        <div className="mobile-brand">
+          <img src="/needhi.png" alt="Needhi AI Logo" className="mobile-logo-img" />
+          <span className="mobile-brand-title">NEEDHI AI</span>
         </div>
       </header>
 
