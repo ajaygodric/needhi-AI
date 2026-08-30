@@ -22,6 +22,41 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
+  const [themeMode, setThemeMode] = useState(() => {
+    return localStorage.getItem("needhi_theme_mode") || "system";
+  });
+
+  // Dynamic system theme detection & listener
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const applyTheme = () => {
+      let resolvedTheme = "dark";
+      if (themeMode === "light") {
+        resolvedTheme = "light";
+      } else if (themeMode === "dark") {
+        resolvedTheme = "dark";
+      } else {
+        // System mode: sync with OS color scheme
+        resolvedTheme = mediaQuery.matches ? "dark" : "light";
+      }
+
+      document.documentElement.setAttribute("data-theme", resolvedTheme);
+      document.documentElement.style.colorScheme = resolvedTheme;
+    };
+
+    applyTheme();
+    localStorage.setItem("needhi_theme_mode", themeMode);
+
+    const handleSystemThemeChange = () => {
+      if (themeMode === "system") {
+        applyTheme();
+      }
+    };
+
+    mediaQuery.addEventListener("change", handleSystemThemeChange);
+    return () => mediaQuery.removeEventListener("change", handleSystemThemeChange);
+  }, [themeMode]);
 
   useEffect(() => {
     const cachedToken = localStorage.getItem("needhi_token");
@@ -88,7 +123,7 @@ function App() {
 
   if (authChecking) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", width: "100vw", height: "100vh", backgroundColor: "#0a0d16", color: "#c9a84c", flexDirection: "column", gap: "20px" }}>
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", width: "100vw", height: "100vh", backgroundColor: "var(--bg-primary)", color: "var(--accent-gold)", flexDirection: "column", gap: "20px" }}>
         <FaBalanceScale style={{ fontSize: "4rem", animation: "pulse 1.5s infinite" }} />
         <p style={{ fontFamily: "Inter, sans-serif", fontSize: "1.1rem", letterSpacing: "1px" }}>Loading Needhi AI...</p>
       </div>
@@ -96,7 +131,14 @@ function App() {
   }
 
   if (!user) {
-    return <Auth onAuthSuccess={handleAuthSuccess} language={language} />;
+    return (
+      <Auth 
+        onAuthSuccess={handleAuthSuccess} 
+        language={language} 
+        themeMode={themeMode}
+        setThemeMode={setThemeMode}
+      />
+    );
   }
 
   return (
@@ -113,6 +155,8 @@ function App() {
         setIsOpen={setIsSidebarOpen}
         user={user}
         onLogout={handleLogout}
+        themeMode={themeMode}
+        setThemeMode={setThemeMode}
       />
 
 

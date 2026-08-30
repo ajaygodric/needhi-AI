@@ -1,21 +1,36 @@
-/* --- Needhi AI Design System & Styling (Dark Luxury Gold) --- */
+/* --- Needhi AI Design System & Styling (Dark Luxury Gold & Executive Light) --- */
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap');
 
-:root {
-  /* Colors */
+:root,
+[data-theme="dark"] {
+  /* Colors - Dark Luxury Gold */
   --bg-primary: #0a0d16;
   --bg-secondary: #111625;
   --bg-tertiary: #192033;
-  --bg-glass: rgba(17, 22, 37, 0.7);
+  --bg-sidebar: linear-gradient(180deg, #0e111a 0%, #111625 70%, #0d101a 100%);
+  --bg-glass: rgba(17, 22, 37, 0.75);
+  --bg-card: #111625;
+  --bg-input: #0a0d16;
+  --bg-chat-ai: #192033;
+  --bg-chat-user: linear-gradient(135deg, rgba(201, 168, 76, 0.18), rgba(201, 168, 76, 0.06));
+  --border-chat-ai: rgba(255, 255, 255, 0.08);
+  --bg-emergency: linear-gradient(90deg, #101424, #1c152a, #101424);
+  --auth-radial-color: rgba(201, 168, 76, 0.08);
+  --watermark-opacity: 0.12;
+
   --border-gold: rgba(201, 168, 76, 0.25);
-  --border-gold-hover: rgba(201, 168, 76, 0.5);
+  --border-gold-hover: rgba(201, 168, 76, 0.55);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+
   --accent-gold: #c9a84c;
   --accent-gold-light: #f0d080;
   --accent-gold-dark: #a68433;
+
   --text-primary: #e8dcc8;
   --text-secondary: #8a9bb0;
-  --text-muted: #4e5f73;
+  --text-muted: #5b6e85;
   --text-light: #ffffff;
+
   --danger: #e74c3c;
   --warning: #f1c40f;
   --success: #2ecc71;
@@ -35,10 +50,51 @@
   --transition-slow: 0.5s ease;
   
   /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.6);
-  --shadow-gold: 0 4px 20px rgba(201, 168, 76, 0.15);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.65);
+  --shadow-gold: 0 4px 20px rgba(201, 168, 76, 0.18);
+}
+
+[data-theme="light"] {
+  /* Colors - Executive Legal Porcelain & Warm Gold */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  --bg-sidebar: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  --bg-glass: rgba(255, 255, 255, 0.9);
+  --bg-card: #ffffff;
+  --bg-input: #ffffff;
+  --bg-chat-ai: #ffffff;
+  --bg-chat-user: linear-gradient(135deg, rgba(179, 134, 40, 0.12), rgba(179, 134, 40, 0.04));
+  --border-chat-ai: rgba(15, 23, 42, 0.08);
+  --bg-emergency: linear-gradient(90deg, #ffffff, #fffdf8, #ffffff);
+  --auth-radial-color: rgba(179, 134, 40, 0.12);
+  --watermark-opacity: 0.035;
+
+  --border-gold: rgba(179, 134, 40, 0.28);
+  --border-gold-hover: rgba(179, 134, 40, 0.65);
+  --border-subtle: rgba(15, 23, 42, 0.09);
+
+  --accent-gold: #b38628;
+  --accent-gold-light: #9a721d;
+  --accent-gold-dark: #805c12;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-light: #0f172a;
+
+  --danger: #dc2626;
+  --warning: #d97706;
+  --success: #16a34a;
+  --info: #0284c7;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 12px 36px rgba(15, 23, 42, 0.1), 0 4px 12px rgba(15, 23, 42, 0.05);
+  --shadow-gold: 0 4px 20px rgba(179, 134, 40, 0.14);
 }
 
 /* --- Resets & Base Styles --- */
@@ -46,6 +102,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  transition: background-color var(--transition-normal), border-color var(--transition-normal), color var(--transition-fast), box-shadow var(--transition-normal);
 }
 
 body {
@@ -93,6 +150,7 @@ a:hover {
 .app-container {
   display: flex;
   min-height: 100vh;
+  background-color: var(--bg-primary);
 }
 
 .main-content {
@@ -104,6 +162,7 @@ a:hover {
   flex-direction: column;
   min-width: 0;
   overflow-x: hidden;
+  background-color: var(--bg-primary);
 }
 
 @media (max-width: 992px) {
@@ -126,9 +185,10 @@ a:hover {
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
-  opacity: 0.12;
+  opacity: var(--watermark-opacity);
   pointer-events: none;
   z-index: 0;
+  transition: opacity var(--transition-normal);
 }
 
 @media (max-width: 992px) {
@@ -141,7 +201,7 @@ a:hover {
 
 /* --- Emergency Banner --- */
 .emergency-banner {
-  background: linear-gradient(90deg, #101424, #1c152a, #101424);
+  background: var(--bg-emergency);
   border-bottom: 1px solid var(--border-gold);
   padding: 10px 20px;
   display: flex;
@@ -156,6 +216,7 @@ a:hover {
   z-index: 10;
   margin: -30px -30px 30px -30px;
   width: calc(100% + 60px);
+  box-shadow: var(--shadow-sm);
 }
 .emergency-banner::-webkit-scrollbar {
   display: none;
@@ -423,12 +484,13 @@ select.input-control {
   position: fixed;
   top: 0; bottom: 0; left: 0;
   width: var(--sidebar-width);
-  background: linear-gradient(180deg, #0e111a 0%, #111625 70%, #0d101a 100%);
+  background: var(--bg-sidebar);
   border-right: 1px solid var(--border-gold);
   display: flex;
   flex-direction: column;
   z-index: 100;
-  transition: transform var(--transition-normal);
+  transition: transform var(--transition-normal), background var(--transition-normal);
+  box-shadow: var(--shadow-sm);
 }
 
 .sidebar-header {
@@ -436,7 +498,7 @@ select.input-control {
   display: flex;
   flex-direction: column;
   align-items: center;
-  border-bottom: 1px solid rgba(201, 168, 76, 0.1);
+  border-bottom: 1px solid var(--border-subtle);
   text-align: center;
 }
 .sidebar-logo-img {
@@ -450,7 +512,7 @@ select.input-control {
   font-family: var(--font-serif);
   font-size: 1.4rem;
   letter-spacing: 2px;
-  color: var(--accent-gold-light);
+  color: var(--accent-gold);
   font-weight: 700;
 }
 .sidebar-brand p {
@@ -479,12 +541,12 @@ select.input-control {
   transition: all var(--transition-fast);
 }
 .menu-item:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--border-subtle);
   color: var(--text-primary);
 }
 .menu-item.active {
-  background: rgba(201, 168, 76, 0.08);
-  color: var(--accent-gold-light);
+  background: rgba(201, 168, 76, 0.12);
+  color: var(--accent-gold);
   border-left: 3px solid var(--accent-gold);
   font-weight: 600;
 }
@@ -494,28 +556,71 @@ select.input-control {
 
 .sidebar-footer {
   padding: 16px;
-  border-top: 1px solid rgba(201, 168, 76, 0.1);
+  border-top: 1px solid var(--border-subtle);
   text-align: center;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
+
+/* Theme Toggle (System / Light / Dark) */
+.theme-toggle {
+  display: flex;
+  background: var(--bg-primary);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid var(--border-gold);
+  gap: 2px;
+}
+
+.theme-btn {
+  flex: 1;
+  padding: 6px 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 5px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: var(--transition-fast);
+}
+
+.theme-btn:hover {
+  color: var(--text-primary);
+}
+
+.theme-btn.active {
+  background: var(--accent-gold);
+  color: var(--bg-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
 .lang-toggle {
   display: flex;
   background: var(--bg-primary);
-  padding: 4px;
+  padding: 3px;
   border-radius: 8px;
   border: 1px solid var(--border-gold);
+  gap: 2px;
 }
 .lang-btn {
   flex: 1;
   padding: 6px;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   border-radius: 5px;
   background: transparent;
   border: none;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: var(--transition-fast);
+}
+.lang-btn:hover {
+  color: var(--text-primary);
 }
 .lang-btn.active {
   background: var(--accent-gold);

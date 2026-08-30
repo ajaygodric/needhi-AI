@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { FaUser, FaLock, FaEnvelope, FaBalanceScale } from "react-icons/fa";
+import { FaUser, FaLock, FaEnvelope, FaBalanceScale, FaSun, FaMoon, FaLaptop } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 
-function Auth({ onAuthSuccess, language }) {
+function Auth({ onAuthSuccess, language, themeMode, setThemeMode }) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -161,6 +161,34 @@ function Auth({ onAuthSuccess, language }) {
 
   return (
     <div className="auth-page-wrapper">
+      {setThemeMode && (
+        <div style={{ position: "absolute", top: "20px", right: "20px", zIndex: 10 }}>
+          <div className="theme-toggle" style={{ width: "200px" }}>
+            <button
+              type="button"
+              className={`theme-btn ${themeMode === "system" ? "active" : ""}`}
+              onClick={() => setThemeMode("system")}
+            >
+              <FaLaptop /> {language === "Tamil" ? "சிஸ்டம்" : "Auto"}
+            </button>
+            <button
+              type="button"
+              className={`theme-btn ${themeMode === "light" ? "active" : ""}`}
+              onClick={() => setThemeMode("light")}
+            >
+              <FaSun /> {language === "Tamil" ? "பகல்" : "Light"}
+            </button>
+            <button
+              type="button"
+              className={`theme-btn ${themeMode === "dark" ? "active" : ""}`}
+              onClick={() => setThemeMode("dark")}
+            >
+              <FaMoon /> {language === "Tamil" ? "இரவு" : "Dark"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="auth-card-container">
         <div className="auth-brand-header">
           <div className="auth-brand-logo">
