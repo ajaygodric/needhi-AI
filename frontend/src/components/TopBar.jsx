@@ -56,34 +56,6 @@ function TopBar({ language, setLanguage, themeMode, setThemeMode, user, onLogout
 
       {/* Right Controls: Theme, Lang & User Profile Dropdown */}
       <div className="topbar-controls">
-        {/* Theme Switcher */}
-        <div className="topbar-theme-toggle" title="Theme Selector">
-          <button
-            type="button"
-            className={`topbar-toggle-btn ${themeMode === "system" ? "active" : ""}`}
-            onClick={() => setThemeMode("system")}
-            title="Auto (System Theme)"
-          >
-            <FaLaptop />
-          </button>
-          <button
-            type="button"
-            className={`topbar-toggle-btn ${themeMode === "light" ? "active" : ""}`}
-            onClick={() => setThemeMode("light")}
-            title="Light Mode"
-          >
-            <FaSun />
-          </button>
-          <button
-            type="button"
-            className={`topbar-toggle-btn ${themeMode === "dark" ? "active" : ""}`}
-            onClick={() => setThemeMode("dark")}
-            title="Dark Mode"
-          >
-            <FaMoon />
-          </button>
-        </div>
-
         {/* Language Switcher */}
         <div className="topbar-lang-toggle">
           <button
