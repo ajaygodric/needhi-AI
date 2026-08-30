@@ -107,6 +107,15 @@ function Auth({ onAuthSuccess, language }) {
   };
 
   const triggerGooglePrompt = () => {
+    if (!googleClientId) {
+      setError(
+        language === "Tamil"
+          ? "Google உள்நுழைவுக்கு Google Cloud OAuth Client ID (.env அல்லது Render சூழலில் GOOGLE_CLIENT_ID) தேவை. கீழே உள்ள மின்னஞ்சல் மற்றும் கடவுச்சொல் மூலம் உடனடியாக உள்நுழையலாம்."
+          : "Google Sign-In setup: Please set your GOOGLE_CLIENT_ID in your .env / Render environment variables. In the meantime, you can log in or register below using your email."
+      );
+      return;
+    }
+
     if (window.google?.accounts?.id) {
       window.google.accounts.id.prompt((notification) => {
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {

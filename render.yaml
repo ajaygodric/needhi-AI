@@ -28,6 +28,8 @@ services:
         sync: false # Optional: Enter SMTP username/email
       - key: SMTP_PASSWORD
         sync: false # Optional: Enter SMTP app password
+      - key: GOOGLE_CLIENT_ID
+        sync: false # Optional: Google Cloud OAuth 2.0 Client ID for Google Sign-In
     disk:
       name: needhi-data
       mountPath: /opt/needhi-data
