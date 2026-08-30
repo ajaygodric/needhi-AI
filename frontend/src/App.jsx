@@ -149,12 +149,11 @@ function App() {
 
       {/* Mobile Drawer Header */}
       <header className="mobile-header">
-        <button className="menu-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+        <button className="menu-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)} aria-label="Toggle Menu">
           {isSidebarOpen ? <FaTimes /> : <FaBars />}
         </button>
-        <div className="mobile-brand">
-          <img src="/needhi.png" alt="Needhi AI Logo" className="mobile-logo-img" />
-          <span className="mobile-brand-title">NEEDHI AI</span>
+        <div className="mobile-header-title">
+          NEEDHI AI
         </div>
       </header>
 

@@ -852,39 +852,25 @@ select.input-control {
   position: fixed;
   top: 0; left: 0; right: 0;
   height: var(--header-height);
-  background: var(--bg-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-gold);
   z-index: 150;
-  padding: 0 16px;
+  padding: 0 20px;
   align-items: center;
-  gap: 12px;
+  justify-content: center; /* Center items horizontally */
 }
-
-.mobile-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.mobile-logo-img {
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
-}
-
-.mobile-brand-title {
+.mobile-header-title {
   font-family: var(--font-serif);
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  letter-spacing: 1.5px;
+  letter-spacing: 2px;
   color: var(--accent-gold);
-  line-height: 1;
+  text-align: center;
 }
-
 .menu-toggle {
-  font-size: 1.35rem;
+  position: absolute;
+  left: 20px;
+  font-size: 1.5rem;
   color: var(--accent-gold);
   background: transparent;
   border: none;
@@ -892,9 +878,7 @@ select.input-control {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
 }
-
 @media (max-width: 992px) {
   .mobile-header {
     display: flex;
@@ -904,21 +888,6 @@ select.input-control {
   }
   .sidebar.open {
     transform: translateX(0);
-  }
-  .app-topbar {
-    margin: 0 0 20px 0;
-    width: 100%;
-    border-radius: 12px;
-    padding: 10px 14px;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  .topbar-helplines {
-    width: 100%;
-  }
-  .topbar-controls {
-    width: 100%;
-    justify-content: flex-end;
   }
 }
 
