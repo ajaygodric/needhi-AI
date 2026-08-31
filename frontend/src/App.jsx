@@ -136,6 +136,10 @@ function App() {
 
   return (
     <div className="app-container">
+      {/* Background Aurora Glows */}
+      <div className="aurora-glow aurora-glow-1"></div>
+      <div className="aurora-glow aurora-glow-2"></div>
+      <div className="aurora-glow aurora-glow-3"></div>
 
       {/* Background logo watermark */}
       <div className="app-watermark"></div>
