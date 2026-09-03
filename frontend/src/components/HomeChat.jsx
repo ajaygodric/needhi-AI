@@ -293,15 +293,33 @@ const HomeChat = ({ language, user }) => {
       </div>
 
       {/* Tabs */}
-      <div className="rights-tab-container">
-        <button className={`rights-tab ${activeTab === "ask" ? "active" : ""}`} onClick={() => setActiveTab("ask")} style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-          <FaComments /> {language === "Tamil" ? "கேளுங்கள்" : "Ask Legal Question"}
+      <div className="home-tab-container">
+        <button 
+          className={`home-tab ${activeTab === "ask" ? "active" : ""}`} 
+          onClick={() => setActiveTab("ask")}
+          title={language === "Tamil" ? "கேளுங்கள்" : "Ask Legal Question"}
+        >
+          <FaComments className="home-tab-icon" />
+          <span className="home-tab-text-full">{language === "Tamil" ? "கேளுங்கள்" : "Ask Legal Question"}</span>
+          <span className="home-tab-text-mobile">{language === "Tamil" ? "கேளுங்கள்" : "Ask Legal"}</span>
         </button>
-        <button className={`rights-tab ${activeTab === "upload" ? "active" : ""}`} onClick={() => setActiveTab("upload")} style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-          <FaFileAlt /> {language === "Tamil" ? "கோப்பு பதிவேற்றம்" : "Upload Document"}
+        <button 
+          className={`home-tab ${activeTab === "upload" ? "active" : ""}`} 
+          onClick={() => setActiveTab("upload")}
+          title={language === "Tamil" ? "கோப்பு பதிவேற்றம்" : "Upload Document"}
+        >
+          <FaFileAlt className="home-tab-icon" />
+          <span className="home-tab-text-full">{language === "Tamil" ? "கோப்பு பதிவேற்றம்" : "Upload Document"}</span>
+          <span className="home-tab-text-mobile">{language === "Tamil" ? "ஆவணம்" : "Doc Upload"}</span>
         </button>
-        <button className={`rights-tab ${activeTab === "voice" ? "active" : ""}`} onClick={() => setActiveTab("voice")} style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-          <FaMicrophone /> {language === "Tamil" ? "குரல் வழி கேள்வி" : "Voice Consultation"}
+        <button 
+          className={`home-tab ${activeTab === "voice" ? "active" : ""}`} 
+          onClick={() => setActiveTab("voice")}
+          title={language === "Tamil" ? "குரல் வழி ஆலோசனை" : "Voice Consultation"}
+        >
+          <FaMicrophone className="home-tab-icon" />
+          <span className="home-tab-text-full">{language === "Tamil" ? "குரல் வழி ஆலோசனை" : "Voice Consultation"}</span>
+          <span className="home-tab-text-mobile">{language === "Tamil" ? "குரல் AI" : "Voice AI"}</span>
         </button>
       </div>
 
@@ -418,16 +436,35 @@ const HomeChat = ({ language, user }) => {
                 type="text"
                 className="chat-input"
                 placeholder={
-                  language === "Tamil"
-                    ? "எ.கா. என் வீட்டு உரிமையாளர் அட்வான்ஸ் தொகையை தரவில்லை..."
-                    : "e.g. My landlord is refusing to return my security deposit..."
+                  isListening
+                    ? (language === "Tamil" ? "கேட்கிறது... பேசவும்..." : "Listening... speak now...")
+                    : (language === "Tamil"
+                        ? "எ.கா. என் வீட்டு உரிமையாளர் அட்வான்ஸ் தொகையை தரவில்லை..."
+                        : "e.g. My landlord is refusing to return my security deposit...")
                 }
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-                disabled={isStreaming}
+                disabled={isStreaming || isListening}
               />
-              <button className="btn btn-primary" onClick={() => handleSendMessage()} disabled={isStreaming || !inputMessage.trim()}>
+              <button 
+                type="button"
+                className={`btn chat-voice-btn ${isListening ? "listening" : ""}`}
+                onClick={startSpeechRecognition}
+                disabled={isStreaming}
+                title={language === "Tamil" ? "குரல் வழி பேசவும்" : "Speak via Voice"}
+                aria-label="Voice input"
+              >
+                <FaMicrophone />
+              </button>
+              <button 
+                type="button"
+                className="btn btn-primary" 
+                onClick={() => handleSendMessage()} 
+                disabled={isStreaming || !inputMessage.trim()}
+                title={language === "Tamil" ? "அனுப்பு" : "Send Message"}
+                aria-label="Send message"
+              >
                 <FaPaperPlane />
               </button>
             </div>

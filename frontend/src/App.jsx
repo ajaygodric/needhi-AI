@@ -136,10 +136,6 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Background Aurora Glows */}
-      <div className="aurora-glow aurora-glow-1"></div>
-      <div className="aurora-glow aurora-glow-2"></div>
-      <div className="aurora-glow aurora-glow-3"></div>
 
       {/* Background logo watermark */}
       <div className="app-watermark"></div>
@@ -150,6 +146,15 @@ function App() {
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
       />
+
+      {/* Mobile Drawer Overlay Backdrop */}
+      {isSidebarOpen && (
+        <div 
+          className="sidebar-overlay open" 
+          onClick={() => setIsSidebarOpen(false)} 
+          aria-label="Close Sidebar Backdrop"
+        />
+      )}
 
       {/* Mobile Drawer Header */}
       <header className="mobile-header">
