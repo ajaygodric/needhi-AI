@@ -77,10 +77,16 @@ def send_otp(req: SendOtpRequest):
         cursor.execute("SELECT id, name FROM users WHERE email = ?", (email,))
         existing_user = cursor.fetchone()
         
+        if purpose == "login" and existing_user is None:
+            raise HTTPException(
+                status_code=404, 
+                detail="UNREGISTERED_EMAIL: This Gmail is not registered yet. Please register your account."
+            )
+            
         if purpose == "register" and existing_user:
             raise HTTPException(
-                status_code=400, 
-                detail="This Gmail is already registered. Please switch to Login tab."
+                status_code=409, 
+                detail="ALREADY_REGISTERED: This Gmail is already registered. Please sign in."
             )
             
         is_new_user = existing_user is None

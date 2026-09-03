@@ -191,6 +191,30 @@ function Auth({ onAuthSuccess, language, themeMode, setThemeMode }) {
 
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 404 || data.detail?.includes("UNREGISTERED_EMAIL")) {
+          // Unregistered email entered on Login -> automatically redirect to Register page!
+          setIsLogin(false);
+          setOtpStep("enter_email");
+          setInfoMsg(
+            language === "Tamil"
+              ? "இந்த ஜிமெயில் இன்னும் பதிவு செய்யப்படவில்லை. பதிவு செய்ய உங்கள் முழு பெயரை உள்ளிட்டு தொடரவும்."
+              : "This Gmail is not registered yet. Please enter your full name below to create your account."
+          );
+          return;
+        }
+
+        if (res.status === 409 || data.detail?.includes("ALREADY_REGISTERED")) {
+          // Already registered email entered on Register -> automatically redirect to Login page!
+          setIsLogin(true);
+          setOtpStep("enter_email");
+          setInfoMsg(
+            language === "Tamil"
+              ? "இந்த ஜிமெயில் ஏற்கனவே பதிவு செய்யப்பட்டுள்ளது. உள்நுழைய OTP பெறவும்."
+              : "This Gmail is already registered. Switched to Login. Click below to receive your OTP."
+          );
+          return;
+        }
+
         throw new Error(data.detail || "Failed to send verification code.");
       }
 
