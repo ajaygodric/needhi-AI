@@ -61,6 +61,14 @@ if os.path.exists(dist_path):
     if os.path.exists(assets_path):
         app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
 
+# Google Search Console verification file
+@app.get("/googlec58aea3c1d9991b9.html")
+def google_verification():
+    return FileResponse(
+        os.path.join(dist_path, "googlec58aea3c1d9991b9.html"),
+        media_type="text/html"
+    )
+
 # SPA HTML5 History API Catch-All Fallback Route
 @app.get("/{catchall:path}")
 def spa_catch_all(catchall: str):
