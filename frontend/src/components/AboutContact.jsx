@@ -10,7 +10,7 @@ const AboutContact = ({ language }) => {
   const helplines = [
     { title: "Police Dispatch", num: "100", dept: "Law & Order", color: "badge-red", icon: FaShieldAlt },
     { title: "Women Helpline", num: "1091", dept: "Safety & Abuse Protection", color: "badge-red", icon: FaUserShield },
-    { title: "Cyber Crime Crime Desk", num: "1930", dept: "Cyber & Financial Fraud Helpline", color: "badge-yellow", icon: FaLaptop },
+    { title: "Cyber Crime Reporting Desk", num: "1930", dept: "Cyber & Financial Fraud Helpline", color: "badge-yellow", icon: FaLaptop },
     { title: "Ambulance Support", num: "108", dept: "Medical Emergencies", color: "badge-green", icon: FaHeartbeat },
     { title: "National Legal Aid (NALSA)", num: "15100", dept: "Free Legal Counsel", color: "badge-blue", icon: FaBalanceScale }
   ];
@@ -78,9 +78,13 @@ const AboutContact = ({ language }) => {
             <div style={{ display: "flex", gap: "15px" }}>
               <div style={{ fontSize: "1.8rem", color: "var(--accent-gold)" }}><FaLaptopCode /></div>
               <div>
-                <h4 style={{ fontFamily: "var(--font-serif)" }}>Modern Tech Stack</h4>
+                <h4 style={{ fontFamily: "var(--font-serif)" }}>
+                  {language === "Tamil" ? "நவீன தொழில்நுட்பக் கட்டமைப்பு" : "Modern Tech Stack"}
+                </h4>
                 <p style={{ color: "var(--text-secondary)", fontSize: "0.88rem" }}>
-                  Needhi AI is powered by React.js and FastAPI, integrated with Google Gemini LLM API key rotations. PDF compilations utilize custom Noto Sans Tamil fonts via FPDF2.
+                  {language === "Tamil"
+                    ? "நீதி AI ஆனது React.js, FastAPI மற்றும் Google Gemini AI தொழில்நுட்பங்களை ஒருங்கிணைத்து உருவாக்கப்பட்டுள்ளது. Noto Sans Tamil எழுத்துருக்களைப் பயன்படுத்தி PDF ஆவணங்களை உருவாக்குகிறது."
+                    : "Needhi AI is powered by React.js and FastAPI, integrated with Google Gemini LLM API key rotations. PDF compilations utilize custom Noto Sans Tamil fonts via FPDF2."}
                 </p>
               </div>
             </div>
@@ -88,9 +92,19 @@ const AboutContact = ({ language }) => {
             <div style={{ display: "flex", gap: "15px" }}>
               <div style={{ fontSize: "1.8rem", color: "var(--accent-gold)" }}><FaUserPlus /></div>
               <div>
-                <h4 style={{ fontFamily: "var(--font-serif)" }}>Developer Credentials</h4>
+                <h4 style={{ fontFamily: "var(--font-serif)" }}>
+                  {language === "Tamil" ? "உருவாக்கியவர் தகவல்" : "Developer Credentials"}
+                </h4>
                 <p style={{ color: "var(--text-secondary)", fontSize: "0.88rem" }}>
-                  Designed and developed by **Ajay Godric** as a free legal aid utility to make judicial awareness accessible for every Indian citizen.
+                  {language === "Tamil" ? (
+                    <>
+                      இந்திய குடிமக்கள் அனைவருக்கும் சட்ட விழிப்புணர்வை எளிதாகக் கொண்டு சேர்க்கும் நோக்கில் <strong>அஜய் காட்ரிக் (Ajay Godric)</strong> என்பவரால் வடிவமைக்கப்பட்டு உருவாக்கப்பட்டது.
+                    </>
+                  ) : (
+                    <>
+                      Designed and developed by <strong>Ajay Godric</strong> as a free legal aid utility to make judicial awareness accessible for every Indian citizen.
+                    </>
+                  )}
                 </p>
               </div>
             </div>
@@ -98,9 +112,13 @@ const AboutContact = ({ language }) => {
             <div style={{ display: "flex", gap: "15px" }}>
               <div style={{ fontSize: "1.8rem", color: "var(--accent-gold)" }}><FaHandsHelping /></div>
               <div>
-                <h4 style={{ fontFamily: "var(--font-serif)" }}>Free Legal Aid Purpose</h4>
+                <h4 style={{ fontFamily: "var(--font-serif)" }}>
+                  {language === "Tamil" ? "இலவச சட்ட உதவி நோக்கம்" : "Free Legal Aid Purpose"}
+                </h4>
                 <p style={{ color: "var(--text-secondary)", fontSize: "0.88rem" }}>
-                  Empowering underrepresented groups by providing automated guidance, document generators, and connecting users with local State Legal Services (NALSA).
+                  {language === "Tamil"
+                    ? "சட்ட உதவி தேவைப்படும் மக்களுக்கு வழிகாட்டுதல், தானியங்கி ஆவணங்கள் தயாரித்தல் மற்றும் தேசிய சட்ட சேவைகள் ஆணையத்துடன் (NALSA) இணைக்கும் பொது சேவை."
+                    : "Empowering underrepresented groups by providing automated guidance, document generators, and connecting users with local State Legal Services (NALSA)."}
                 </p>
               </div>
             </div>
