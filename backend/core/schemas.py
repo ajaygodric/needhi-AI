@@ -86,6 +86,22 @@ class AuthResponse(BaseModel):
     name: str
     email: EmailStr
 
+class SendOtpRequest(BaseModel):
+    email: EmailStr = Field(..., max_length=255)
+    purpose: str = Field(default="login", max_length=20)
+    name: Optional[str] = Field(None, max_length=100)
+
+class VerifyOtpRequest(BaseModel):
+    email: EmailStr = Field(..., max_length=255)
+    otp: str = Field(..., min_length=4, max_length=10)
+    name: Optional[str] = Field(None, max_length=100)
+    purpose: Optional[str] = Field(default="login", max_length=20)
+
+class SendOtpResponse(BaseModel):
+    success: bool
+    message: str
+    is_new_user: Optional[bool] = False
+
 class UserMeResponse(BaseModel):
     name: str
     email: EmailStr

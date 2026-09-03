@@ -119,6 +119,19 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
         """)
+        
+        # Create email_otps table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS email_otps (
+            email TEXT PRIMARY KEY,
+            otp_code TEXT NOT NULL,
+            purpose TEXT NOT NULL,
+            name TEXT,
+            created_at REAL NOT NULL,
+            expires_at REAL NOT NULL,
+            attempts INTEGER NOT NULL DEFAULT 0
+        )
+        """)
 
         
         # Migration from cases.json

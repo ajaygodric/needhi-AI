@@ -128,3 +128,30 @@ def send_email_notification(recipients: List[dict], subject: str, body: str) -> 
             
     logger.info(f"Simulated email dispatch: Subject='{subject}' to {to_emails}")
     return False, "Simulated email dispatch (No API keys or SMTP configured)"
+
+def send_otp_email(email: str, name: str, otp_code: str, purpose: str = "login") -> tuple:
+    """
+    Dispatches a professional OTP verification email to the user's Gmail.
+    """
+    subject = f"{otp_code} is your Needhi AI Verification Code"
+    action_text = "complete your registration" if purpose == "register" else "sign in to your Needhi AI account"
+    display_name = name if name else "Citizen"
+    
+    body = f"""Dear {display_name},
+
+Your Needhi AI one-time verification code (OTP) is:
+
+    {otp_code}
+
+Use this 6-digit code to {action_text}.
+This code is confidential and will expire in 10 minutes.
+
+If you did not request this verification code, please ignore this email.
+
+Warm regards,
+Needhi AI Legal Assistant
+Free AI-Powered Legal Aid for Indian Law
+https://needhi-ai.onrender.com
+"""
+    return send_email_notification([{"email": email, "name": display_name}], subject, body)
+
