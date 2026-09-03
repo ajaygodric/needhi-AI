@@ -293,33 +293,24 @@ const HomeChat = ({ language, user }) => {
       </div>
 
       {/* Tabs */}
-      <div className="home-tab-container">
+      <div className="home-tab-container tabs-2">
         <button 
           className={`home-tab ${activeTab === "ask" ? "active" : ""}`} 
           onClick={() => setActiveTab("ask")}
-          title={language === "Tamil" ? "கேளுங்கள்" : "Ask Legal Question"}
+          title={language === "Tamil" ? "சட்டக் கேள்வி கேளுங்கள்" : "Ask Legal Question"}
         >
           <FaComments className="home-tab-icon" />
-          <span className="home-tab-text-full">{language === "Tamil" ? "கேளுங்கள்" : "Ask Legal Question"}</span>
+          <span className="home-tab-text-full">{language === "Tamil" ? "சட்டக் கேள்வி கேளுங்கள்" : "Ask Legal Question"}</span>
           <span className="home-tab-text-mobile">{language === "Tamil" ? "கேளுங்கள்" : "Ask Legal"}</span>
         </button>
         <button 
           className={`home-tab ${activeTab === "upload" ? "active" : ""}`} 
           onClick={() => setActiveTab("upload")}
-          title={language === "Tamil" ? "கோப்பு பதிவேற்றம்" : "Upload Document"}
+          title={language === "Tamil" ? "ஆவணம் பதிவேற்றம்" : "Upload Document"}
         >
           <FaFileAlt className="home-tab-icon" />
-          <span className="home-tab-text-full">{language === "Tamil" ? "கோப்பு பதிவேற்றம்" : "Upload Document"}</span>
+          <span className="home-tab-text-full">{language === "Tamil" ? "ஆவணம் பதிவேற்றம்" : "Upload Document"}</span>
           <span className="home-tab-text-mobile">{language === "Tamil" ? "ஆவணம்" : "Doc Upload"}</span>
-        </button>
-        <button 
-          className={`home-tab ${activeTab === "voice" ? "active" : ""}`} 
-          onClick={() => setActiveTab("voice")}
-          title={language === "Tamil" ? "குரல் வழி ஆலோசனை" : "Voice Consultation"}
-        >
-          <FaMicrophone className="home-tab-icon" />
-          <span className="home-tab-text-full">{language === "Tamil" ? "குரல் வழி ஆலோசனை" : "Voice Consultation"}</span>
-          <span className="home-tab-text-mobile">{language === "Tamil" ? "குரல் AI" : "Voice AI"}</span>
         </button>
       </div>
 
@@ -643,59 +634,6 @@ const HomeChat = ({ language, user }) => {
                   </button>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 3: Voice Input */}
-      {activeTab === "voice" && (
-        <div className="card step-card" style={{ textAlign: "center", padding: "40px 20px" }}>
-          <div className="card-title" style={{ justifyContent: "center" }}>
-            <span><FaMicrophone /></span>
-            {language === "Tamil" ? "குரல் ஆணை சட்ட ஆலோசனை" : "Speech-to-Text Counsel"}
-          </div>
-          <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", maxWidth: "500px", margin: "0 auto 30px auto" }}>
-            {language === "Tamil"
-              ? "கீழே உள்ள மைக் பொத்தானை அழுத்தி, உங்கள் சட்டச் சிக்கலைத் தெளிவாகப் பேசவும்."
-              : "Click the microphone button and describe your case. Needhi AI will transcribe your description and analyze it."}
-          </p>
-
-          <div style={{ marginBottom: "30px" }}>
-            <button
-              className={`btn ${isListening ? "btn-danger" : "btn-primary"}`}
-              style={{
-                width: "80px",
-                height: "80px",
-                borderRadius: "50%",
-                fontSize: "2rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                margin: "0 auto",
-                boxShadow: isListening ? "0 0 20px rgba(231,76,60,0.6)" : "none",
-                animation: isListening ? "pulseNode 1.2s infinite alternate" : "none"
-              }}
-              onClick={startSpeechRecognition}
-              disabled={isListening}
-            >
-              <FaMicrophone />
-            </button>
-            <div style={{ marginTop: "12px", fontWeight: "600", fontSize: "0.9rem", color: isListening ? "var(--danger)" : "var(--text-secondary)" }}>
-              {isListening ? (language === "Tamil" ? "கேட்கிறது... பேசவும்" : "Listening... speak now") : (language === "Tamil" ? "தொடங்க கிளிக் செய்க" : "Click to Speak")}
-            </div>
-          </div>
-
-          {voiceTranscript && (
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-gold)", borderRadius: "8px", padding: "16px", maxWidth: "600px", margin: "0 auto 16px auto", textAlign: "left" }}>
-              <div style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--accent-gold)", fontWeight: "700" }}>{language === "Tamil" ? "நாங்கள் கேட்டது" : "Transcribed Text"}</div>
-              <p style={{ fontSize: "0.95rem", marginTop: "4px" }}>"{voiceTranscript}"</p>
-            </div>
-          )}
-
-          {voiceError && (
-            <div style={{ color: "var(--danger)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", fontSize: "0.9rem" }}>
-              <FaExclamationTriangle /> {voiceError}
             </div>
           )}
         </div>

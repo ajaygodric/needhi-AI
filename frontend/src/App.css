@@ -1182,6 +1182,9 @@ select.input-control {
   margin-bottom: 25px;
   width: 100%;
 }
+.home-tab-container.tabs-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
 .home-tab {
   display: flex;
   align-items: center;
