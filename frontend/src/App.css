@@ -1249,7 +1249,7 @@ select.input-control {
 
 /* --- Hero Category Banner --- */
 .rights-hero-banner {
-  background: linear-gradient(135deg, rgba(20, 26, 40, 0.8) 0%, rgba(13, 17, 28, 0.95) 100%);
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
   border: 1px solid var(--border-gold);
   border-radius: 18px;
   padding: 32px 28px;
@@ -1272,9 +1272,9 @@ select.input-control {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(201, 168, 76, 0.15);
+  background: rgba(201, 168, 76, 0.12);
   border: 1px solid var(--border-gold);
-  color: var(--accent-gold-light);
+  color: var(--accent-gold);
   padding: 5px 14px;
   border-radius: 20px;
   font-size: 0.78rem;
@@ -1286,7 +1286,7 @@ select.input-control {
 .rights-hero-title {
   font-family: var(--font-serif);
   font-size: 2.2rem;
-  color: var(--accent-gold-light);
+  color: var(--accent-gold);
   letter-spacing: 1px;
   margin-bottom: 8px;
 }
@@ -1315,7 +1315,7 @@ select.input-control {
 }
 .rights-search-input {
   width: 100%;
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   border: 1.5px solid var(--border-gold);
   border-radius: 12px;
   padding: 14px 44px 14px 48px;
@@ -1326,7 +1326,7 @@ select.input-control {
   box-shadow: var(--shadow-sm);
 }
 .rights-search-input:focus {
-  border-color: var(--accent-gold-light);
+  border-color: var(--accent-gold-hover);
   box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.2);
 }
 .rights-search-clear {
@@ -1334,7 +1334,7 @@ select.input-control {
   right: 14px;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--border-subtle);
   border: none;
   color: var(--text-secondary);
   width: 24px;
