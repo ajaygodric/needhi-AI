@@ -181,30 +181,33 @@ const LawyerBooking = ({ language, user }) => {
       </div>
 
       {/* Tabs */}
-      <div className="rights-tab-container">
+      <div className="home-tab-container">
         <button
-          className={`rights-tab ${activeTab === "directory" ? "active" : ""}`}
+          className={`home-tab ${activeTab === "directory" ? "active" : ""}`}
           onClick={() => setActiveTab("directory")}
-          style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}
+          title={language === "Tamil" ? "வழக்கறிஞர்கள் முன்பதிவு" : "Book Practicing Lawyers"}
         >
-          <FaGavel />
-          <span>{language === "Tamil" ? "வழக்கறிஞர்கள் முன்பதிவு" : "Book Practicing Lawyers"}</span>
+          <FaGavel className="home-tab-icon" />
+          <span className="home-tab-text-full">{language === "Tamil" ? "வழக்கறிஞர்கள் முன்பதிவு" : "Book Practicing Lawyers"}</span>
+          <span className="home-tab-text-mobile">{language === "Tamil" ? "வழக்கறிஞர்கள்" : "Advocates"}</span>
         </button>
         <button
-          className={`rights-tab ${activeTab === "nalsa" ? "active" : ""}`}
+          className={`home-tab ${activeTab === "nalsa" ? "active" : ""}`}
           onClick={() => setActiveTab("nalsa")}
-          style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}
+          title={language === "Tamil" ? "இலவச சட்ட உதவி (NALSA)" : "Free Legal Aid (NALSA)"}
         >
-          <FaUniversity />
-          <span>{language === "Tamil" ? "இலவச சட்ட உதவி மையங்கள் (NALSA)" : "Free Legal Aid Centers (NALSA)"}</span>
+          <FaUniversity className="home-tab-icon" />
+          <span className="home-tab-text-full">{language === "Tamil" ? "இலவச சட்ட உதவி (NALSA)" : "Free Legal Aid (NALSA)"}</span>
+          <span className="home-tab-text-mobile">{language === "Tamil" ? "இலவச உதவி" : "Free Aid"}</span>
         </button>
         <button
-          className={`rights-tab ${activeTab === "my-bookings" ? "active" : ""}`}
+          className={`home-tab ${activeTab === "my-bookings" ? "active" : ""}`}
           onClick={() => setActiveTab("my-bookings")}
-          style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}
+          title={language === "Tamil" ? "எனது முன்பதிவுகள்" : "My Bookings"}
         >
-          <FaCalendarAlt />
-          <span>{language === "Tamil" ? "எனது முன்பதிவுகள்" : "My Bookings"}</span>
+          <FaCalendarAlt className="home-tab-icon" />
+          <span className="home-tab-text-full">{language === "Tamil" ? "எனது முன்பதிவுகள்" : "My Bookings"}</span>
+          <span className="home-tab-text-mobile">{language === "Tamil" ? "முன்பதிவு" : "Bookings"}</span>
         </button>
       </div>
 
