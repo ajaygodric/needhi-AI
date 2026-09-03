@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { 
   FaUser, 
-  FaLock, 
   FaEnvelope, 
   FaBalanceScale, 
   FaSun, 
@@ -17,9 +16,7 @@ import { FcGoogle } from "react-icons/fc";
 
 function Auth({ onAuthSuccess, language, themeMode, setThemeMode }) {
   const [isLogin, setIsLogin] = useState(true);
-  const [authMethod, setAuthMethod] = useState("otp"); // "otp" (default) or "password"
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [otp, setOtp] = useState("");
   const [otpStep, setOtpStep] = useState("enter_email"); // "enter_email" or "enter_otp"
@@ -141,7 +138,7 @@ function Auth({ onAuthSuccess, language, themeMode, setThemeMode }) {
     if (!googleClientId) {
       setError(
         language === "Tamil"
-          ? "Google உள்நுழைவுக்கு Google Cloud OAuth Client ID (.env அல்லது Render சூழலில் GOOGLE_CLIENT_ID) தேவை. கீழே உள்ள Gmail OTP மூலம் உடனடியாக உள்நுழையலாம்."
+          ? "Google உள்நுழைவுக்கு Google Cloud OAuth Client ID தேவை. கீழே உள்ள Gmail OTP மூலம் உடனடியாக உள்நுழையலாம்."
           : "Google Sign-In setup: Please set your GOOGLE_CLIENT_ID in your environment variables. In the meantime, you can log in or register below using your Gmail OTP."
       );
       return;
@@ -248,49 +245,6 @@ function Auth({ onAuthSuccess, language, themeMode, setThemeMode }) {
     }
   };
 
-  // Password-based authentication fallback
-  const handlePasswordSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setInfoMsg("");
-
-    const cleanEmail = email.trim().toLowerCase();
-    if (!isValidGmail(cleanEmail)) {
-      setError(
-        language === "Tamil"
-          ? "சரியான @gmail.com மின்னஞ்சலை மட்டுமே பயன்படுத்த முடியும்."
-          : "Only valid @gmail.com addresses are permitted."
-      );
-      return;
-    }
-
-    setLoading(true);
-
-    const endpoint = isLogin ? "/api/auth/login" : "/api/auth/register";
-    const payload = isLogin 
-      ? { email: cleanEmail, password } 
-      : { name: name.trim(), email: cleanEmail, password };
-
-    try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.detail || "Authentication failed. Please try again.");
-      }
-
-      onAuthSuccess(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const switchTab = (toLogin) => {
     setIsLogin(toLogin);
     setError("");
@@ -366,7 +320,7 @@ function Auth({ onAuthSuccess, language, themeMode, setThemeMode }) {
 
         {/* Divider */}
         <div className="auth-divider">
-          <span>{language === "Tamil" ? "அல்லது ஜிமெயில் மூலம்" : "or continue with gmail"}</span>
+          <span>{language === "Tamil" ? "அல்லது ஜிமெயில் OTP மூலம்" : "or continue with gmail otp"}</span>
         </div>
 
         {/* Main Tab: Login vs Register */}
@@ -387,26 +341,6 @@ function Auth({ onAuthSuccess, language, themeMode, setThemeMode }) {
           </button>
         </div>
 
-        {/* Auth Method Sub-Toggle (OTP vs Password) */}
-        <div className="auth-sub-toggle">
-          <button 
-            type="button"
-            className={`auth-sub-btn ${authMethod === "otp" ? "active" : ""}`}
-            onClick={() => { setAuthMethod("otp"); setError(""); }}
-          >
-            <FaShieldAlt style={{ fontSize: "0.85rem" }} />
-            <span>{language === "Tamil" ? "Gmail OTP முறை" : "Gmail OTP (Instant)"}</span>
-          </button>
-          <button 
-            type="button"
-            className={`auth-sub-btn ${authMethod === "password" ? "active" : ""}`}
-            onClick={() => { setAuthMethod("password"); setError(""); }}
-          >
-            <FaLock style={{ fontSize: "0.85rem" }} />
-            <span>{language === "Tamil" ? "கடவுச்சொல்" : "Password"}</span>
-          </button>
-        </div>
-
         {/* Alerts */}
         {error && <div className="auth-error-alert">{error}</div>}
         {infoMsg && (
@@ -416,164 +350,114 @@ function Auth({ onAuthSuccess, language, themeMode, setThemeMode }) {
           </div>
         )}
 
-        {/* --- 1. GMAIL OTP FLOW --- */}
-        {authMethod === "otp" && (
-          <div>
-            {otpStep === "enter_email" ? (
-              <form onSubmit={handleSendOtp} className="auth-form">
-                {!isLogin && (
-                  <div className="auth-input-group">
-                    <FaUser className="input-icon" />
-                    <input 
-                      type="text" 
-                      placeholder={language === "Tamil" ? "உங்கள் முழுப் பெயர்" : "Your Full Name"}
-                      value={name} 
-                      onChange={(e) => setName(e.target.value)} 
-                      required 
-                    />
-                  </div>
-                )}
-
+        {/* --- PASSWORDLESS GMAIL OTP FLOW --- */}
+        <div>
+          {otpStep === "enter_email" ? (
+            <form onSubmit={handleSendOtp} className="auth-form">
+              {!isLogin && (
                 <div className="auth-input-group">
-                  <FaEnvelope className="input-icon" />
-                  <input 
-                    type="email" 
-                    placeholder="yourname@gmail.com"
-                    value={email} 
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      if (error) setError("");
-                    }} 
-                    required 
-                  />
-                </div>
-
-                <div className="auth-gmail-badge">
-                  <FaShieldAlt style={{ color: "var(--accent-gold)" }} />
-                  <span>{language === "Tamil" ? "அங்கீகரிக்கப்பட்ட @gmail.com மின்னஞ்சல் மட்டுமே ஏற்கப்படும்" : "Restricted to official @gmail.com accounts only"}</span>
-                </div>
-
-                <button type="submit" className="auth-submit-btn" disabled={loading || googleLoading}>
-                  <FaPaperPlane />
-                  <span>
-                    {loading 
-                      ? (language === "Tamil" ? "குறியீடு அனுப்புகிறது..." : "Sending Verification Code...") 
-                      : (language === "Tamil" ? "OTP குறியீடு பெறுக" : "Send Verification Code (OTP)")}
-                  </span>
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyOtp} className="auth-form">
-                <div className="auth-email-pill">
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
-                    <FaEnvelope style={{ color: "var(--accent-gold)", flexShrink: 0 }} />
-                    <span className="auth-email-text">{email}</span>
-                  </div>
-                  <button 
-                    type="button" 
-                    className="auth-change-email-btn"
-                    onClick={() => {
-                      setOtpStep("enter_email");
-                      setOtp("");
-                    }}
-                  >
-                    <FaEdit /> {language === "Tamil" ? "மாற்று" : "Change"}
-                  </button>
-                </div>
-
-                <div className="auth-input-group">
-                  <FaKey className="input-icon" />
+                  <FaUser className="input-icon" />
                   <input 
                     type="text" 
-                    placeholder={language === "Tamil" ? "6-இலக்க OTP குறியீடு" : "Enter 6-digit OTP code"}
-                    value={otp} 
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} 
-                    maxLength={6}
-                    autoFocus
+                    placeholder={language === "Tamil" ? "உங்கள் முழுப் பெயர்" : "Your Full Name"}
+                    value={name} 
+                    onChange={(e) => setName(e.target.value)} 
                     required 
-                    style={{ letterSpacing: "4px", fontSize: "1.2rem", fontWeight: "700", textAlign: "center" }}
                   />
                 </div>
+              )}
 
-                <div className="auth-resend-row">
-                  {countdown > 0 ? (
-                    <span className="auth-countdown-text">
-                      {language === "Tamil" ? `மறுபடி அனுப்ப: ${countdown} வினாடிகள்` : `Resend code in ${countdown}s`}
-                    </span>
-                  ) : (
-                    <button 
-                      type="button" 
-                      className="auth-resend-btn"
-                      onClick={handleSendOtp}
-                      disabled={loading}
-                    >
-                      {language === "Tamil" ? "புதிய OTP குறியீடு அனுப்பு" : "Resend OTP Code"}
-                    </button>
-                  )}
-                </div>
-
-                <button type="submit" className="auth-submit-btn" disabled={loading || otp.length < 4}>
-                  <FaCheckCircle />
-                  <span>
-                    {loading 
-                      ? (language === "Tamil" ? "சரிபார்க்கிறது..." : "Verifying...") 
-                      : (isLogin 
-                          ? (language === "Tamil" ? "சரிபார்த்து உள்நுழைக" : "Verify & Sign In") 
-                          : (language === "Tamil" ? "சரிபார்த்து கணக்கை துவங்கு" : "Verify & Create Account"))}
-                  </span>
-                </button>
-              </form>
-            )}
-          </div>
-        )}
-
-        {/* --- 2. PASSWORD AUTH FLOW (FALLBACK) --- */}
-        {authMethod === "password" && (
-          <form onSubmit={handlePasswordSubmit} className="auth-form">
-            {!isLogin && (
               <div className="auth-input-group">
-                <FaUser className="input-icon" />
+                <FaEnvelope className="input-icon" />
                 <input 
-                  type="text" 
-                  placeholder={language === "Tamil" ? "உங்கள் பெயர்" : "Your Name"}
-                  value={name} 
-                  onChange={(e) => setName(e.target.value)} 
+                  type="email" 
+                  placeholder="yourname@gmail.com"
+                  value={email} 
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (error) setError("");
+                  }} 
                   required 
                 />
               </div>
-            )}
 
-            <div className="auth-input-group">
-              <FaEnvelope className="input-icon" />
-              <input 
-                type="email" 
-                placeholder="yourname@gmail.com"
-                value={email} 
-                onChange={(e) => setEmail(e.target.value)} 
-                required 
-              />
-            </div>
+              <div className="auth-gmail-badge">
+                <FaShieldAlt style={{ color: "var(--accent-gold)" }} />
+                <span>{language === "Tamil" ? "அங்கீகரிக்கப்பட்ட @gmail.com மின்னஞ்சல் மட்டுமே ஏற்கப்படும்" : "Restricted to official @gmail.com accounts only"}</span>
+              </div>
 
-            <div className="auth-input-group">
-              <FaLock className="input-icon" />
-              <input 
-                type="password" 
-                placeholder={language === "Tamil" ? "கடவுச்சொல்" : "Password"}
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
-                required 
-              />
-            </div>
+              <button type="submit" className="auth-submit-btn" disabled={loading || googleLoading}>
+                <FaPaperPlane />
+                <span>
+                  {loading 
+                    ? (language === "Tamil" ? "குறியீடு அனுப்புகிறது..." : "Sending Verification Code...") 
+                    : (language === "Tamil" ? "OTP குறியீடு பெறுக" : "Send Verification Code (OTP)")}
+                </span>
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyOtp} className="auth-form">
+              <div className="auth-email-pill">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                  <FaEnvelope style={{ color: "var(--accent-gold)", flexShrink: 0 }} />
+                  <span className="auth-email-text">{email}</span>
+                </div>
+                <button 
+                  type="button" 
+                  className="auth-change-email-btn"
+                  onClick={() => {
+                    setOtpStep("enter_email");
+                    setOtp("");
+                  }}
+                >
+                  <FaEdit /> {language === "Tamil" ? "மாற்று" : "Change"}
+                </button>
+              </div>
 
-            <button type="submit" className="auth-submit-btn" disabled={loading || googleLoading}>
-              {loading 
-                ? (language === "Tamil" ? "செயலாக்குகிறது..." : "Processing...") 
-                : (isLogin 
-                    ? (language === "Tamil" ? "உள்நுழைய" : "Sign In with Password") 
-                    : (language === "Tamil" ? "கணக்கை உருவாக்கு" : "Register with Password"))}
-            </button>
-          </form>
-        )}
+              <div className="auth-input-group">
+                <FaKey className="input-icon" />
+                <input 
+                  type="text" 
+                  placeholder={language === "Tamil" ? "6-இலக்க OTP குறியீடு" : "Enter 6-digit OTP code"}
+                  value={otp} 
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} 
+                  maxLength={6}
+                  autoFocus
+                  required 
+                  style={{ letterSpacing: "4px", fontSize: "1.2rem", fontWeight: "700", textAlign: "center" }}
+                />
+              </div>
+
+              <div className="auth-resend-row">
+                {countdown > 0 ? (
+                  <span className="auth-countdown-text">
+                    {language === "Tamil" ? `மறுபடி அனுப்ப: ${countdown} வினாடிகள்` : `Resend code in ${countdown}s`}
+                  </span>
+                ) : (
+                  <button 
+                    type="button" 
+                    className="auth-resend-btn"
+                    onClick={handleSendOtp}
+                    disabled={loading}
+                  >
+                    {language === "Tamil" ? "புதிய OTP குறியீடு அனுப்பு" : "Resend OTP Code"}
+                  </button>
+                )}
+              </div>
+
+              <button type="submit" className="auth-submit-btn" disabled={loading || otp.length < 4}>
+                <FaCheckCircle />
+                <span>
+                  {loading 
+                    ? (language === "Tamil" ? "சரிபார்க்கிறது..." : "Verifying...") 
+                    : (isLogin 
+                        ? (language === "Tamil" ? "சரிபார்த்து உள்நுழைக" : "Verify & Sign In") 
+                        : (language === "Tamil" ? "சரிபார்த்து கணக்கை துவங்கு" : "Verify & Create Account"))}
+                </span>
+              </button>
+            </form>
+          )}
+        </div>
 
         {/* Footer Navigation */}
         <p className="auth-footer-note">

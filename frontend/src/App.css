@@ -2525,41 +2525,6 @@ select.input-control {
   border: 1px solid var(--border-gold);
 }
 
-/* Auth Sub-Toggle (OTP vs Password) */
-.auth-sub-toggle {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
-  background: var(--bg-primary);
-  padding: 4px;
-  border-radius: 8px;
-  border: 1px solid var(--border-subtle);
-}
-
-.auth-sub-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  background: transparent;
-  border: none;
-  padding: 8px 10px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.auth-sub-btn.active {
-  background: var(--bg-tertiary);
-  color: var(--accent-gold);
-  border: 1px solid var(--border-gold);
-  box-shadow: var(--shadow-sm);
-}
-
 /* Auth Gmail Badge */
 .auth-gmail-badge {
   display: flex;
