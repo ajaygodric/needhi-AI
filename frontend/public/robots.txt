@@ -1,0 +1,11 @@
+# Needhi AI - robots.txt
+# Allow all search engines to crawl all public pages
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://needhi-ai.onrender.com/sitemap.xml
+
+# Disallow API endpoints from being indexed
+Disallow: /api/
