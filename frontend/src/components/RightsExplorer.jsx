@@ -26,10 +26,30 @@ const RightsExplorer = ({ language }) => {
   const [activeTab, setActiveTab] = useState("police");
 
   const tabs = [
-    { id: "police", label: { English: "Police & Arrest", Tamil: "காவல் & கைது" }, icon: FaUserShield },
-    { id: "consumer", label: { English: "Consumer Rights", Tamil: "நுகர்வோர் உரிமை" }, icon: FaShoppingCart },
-    { id: "tenant", label: { English: "Tenant Rights", Tamil: "வாடகைதாரர்" }, icon: FaHome },
-    { id: "cyber", label: { English: "Cyber Security", Tamil: "இணையப் பாதுகாப்பு" }, icon: FaLaptop }
+    { 
+      id: "police", 
+      label: { English: "Police & Arrest", Tamil: "காவல் & கைது" }, 
+      mobileLabel: { English: "Police & Arrest", Tamil: "காவல் & கைது" },
+      icon: FaUserShield 
+    },
+    { 
+      id: "consumer", 
+      label: { English: "Consumer Rights", Tamil: "நுகர்வோர் உரிமை" }, 
+      mobileLabel: { English: "Consumer Rights", Tamil: "நுகர்வோர்" },
+      icon: FaShoppingCart 
+    },
+    { 
+      id: "tenant", 
+      label: { English: "Tenant Rights", Tamil: "வாடகைதாரர் சட்டம்" }, 
+      mobileLabel: { English: "Tenant Rights", Tamil: "வாடகைதாரர்" },
+      icon: FaHome 
+    },
+    { 
+      id: "cyber", 
+      label: { English: "Cyber Security", Tamil: "இணையப் பாதுகாப்பு" }, 
+      mobileLabel: { English: "Cyber Security", Tamil: "இணையம்" },
+      icon: FaLaptop 
+    }
   ];
 
   const rightsData = {
@@ -193,10 +213,11 @@ const RightsExplorer = ({ language }) => {
               key={tab.id}
               className={`rights-tab ${activeTab === tab.id ? "active" : ""}`}
               onClick={() => setActiveTab(tab.id)}
-              style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}
+              title={tab.label[language]}
             >
-              <Icon style={{ flexShrink: 0 }} />
-              <span>{tab.label[language]}</span>
+              <Icon className="home-tab-icon" />
+              <span className="home-tab-text-full">{tab.label[language]}</span>
+              <span className="home-tab-text-mobile">{tab.mobileLabel[language]}</span>
             </button>
           );
         })}
