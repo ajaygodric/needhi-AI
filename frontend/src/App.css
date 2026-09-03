@@ -2624,15 +2624,19 @@ select.input-control {
 .google-auth-wrapper {
   width: 100%;
   display: flex;
-  justify-content: center;
-  margin-bottom: 20px;
+  flex-direction: column;
+  align-items: stretch;
+  margin-bottom: 22px;
 }
 
 .google-official-btn-container {
   display: flex;
   justify-content: center;
   width: 100%;
-  min-height: 44px;
+}
+
+.google-official-btn-container:empty {
+  display: none;
 }
 
 .auth-google-btn {
@@ -2641,21 +2645,23 @@ select.input-control {
   justify-content: center;
   gap: 12px;
   width: 100%;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(201, 168, 76, 0.4);
+  box-sizing: border-box;
+  background: var(--bg-primary);
+  border: 1.5px solid var(--border-gold);
   border-radius: 8px;
-  padding: 13px 18px;
-  font-size: 0.98rem;
+  padding: 13px 20px;
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--text-primary);
   cursor: pointer;
-  transition: var(--transition-fast);
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
 }
 
 .auth-google-btn:hover:not(:disabled) {
-  background: rgba(201, 168, 76, 0.12);
-  border-color: var(--accent-gold-light);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), 0 0 12px rgba(201, 168, 76, 0.2);
+  background: rgba(201, 168, 76, 0.08);
+  border-color: var(--accent-gold);
+  box-shadow: var(--shadow-md), 0 0 16px rgba(201, 168, 76, 0.2);
   transform: translateY(-1px);
 }
 
@@ -2664,9 +2670,10 @@ select.input-control {
 }
 
 .auth-google-btn .google-icon {
-  font-size: 1.35rem;
+  font-size: 1.3rem;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 /* Auth Divider */
@@ -2674,9 +2681,11 @@ select.input-control {
   display: flex;
   align-items: center;
   text-align: center;
-  margin: 5px 0 20px 0;
+  width: 100%;
+  margin: 6px 0 22px 0;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.8px;
 }
@@ -2685,11 +2694,11 @@ select.input-control {
 .auth-divider::after {
   content: '';
   flex: 1;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .auth-divider span {
-  padding: 0 12px;
+  padding: 0 14px;
 }
 
 /* Google Account Modal */
