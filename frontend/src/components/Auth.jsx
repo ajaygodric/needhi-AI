@@ -26,6 +26,7 @@ function Auth({ onAuthSuccess, language, themeMode, setThemeMode }) {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleClientId, setGoogleClientId] = useState("");
+  const [gisRendered, setGisRendered] = useState(false);
   const googleBtnRef = useRef(null);
 
   // Countdown timer for OTP resend
@@ -109,6 +110,7 @@ function Auth({ onAuthSuccess, language, themeMode, setThemeMode }) {
           logo_alignment: "left",
           width: 380,
         });
+        setGisRendered(true);
       }
     } else {
       const timer = setTimeout(() => {
@@ -128,6 +130,7 @@ function Auth({ onAuthSuccess, language, themeMode, setThemeMode }) {
             logo_alignment: "left",
             width: 380,
           });
+          setGisRendered(true);
         }
       }, 800);
       return () => clearTimeout(timer);
@@ -322,10 +325,15 @@ function Auth({ onAuthSuccess, language, themeMode, setThemeMode }) {
 
         {/* Official Google Sign-In Container */}
         <div className="google-auth-wrapper">
-          <div ref={googleBtnRef} id="google-signin-btn" className="google-official-btn-container"></div>
+          <div 
+            ref={googleBtnRef} 
+            id="google-signin-btn" 
+            className="google-official-btn-container"
+            style={{ display: gisRendered ? "flex" : "none", width: "100%", justifyContent: "center" }}
+          ></div>
           
           {/* Fallback button if GIS button container is not yet populated */}
-          {(!googleClientId || !window.google?.accounts?.id) && (
+          {!gisRendered && (
             <button 
               type="button" 
               className="auth-google-btn"
